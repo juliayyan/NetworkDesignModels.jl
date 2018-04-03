@@ -7,5 +7,6 @@ module NetworkDesignModels
 
     include("model/designmodel.jl")
     include("model/variables.jl")
+    include("model/constraints.jl")
 
 end

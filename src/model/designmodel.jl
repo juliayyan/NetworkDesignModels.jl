@@ -29,5 +29,8 @@ function DesignModel(
     dm.ride = ridershipvariable(dm)
     dm.open = openroutevariable(dm)
 
+    # Constraints
+    routeopenconstraint(dm)
+
     dm
 end 
