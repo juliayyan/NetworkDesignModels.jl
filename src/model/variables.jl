@@ -1,6 +1,6 @@
 function designvariable(dm::DesignModel)
     JuMP.@variable(dm.model,
-        y[1:length(dm.np.nsegments)], Bin)
+        y[1:dm.np.nsegments], Bin)
     y
 end
 
