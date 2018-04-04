@@ -39,3 +39,11 @@ function budgetconstraint(dm::DesignModel)
     JuMP.@constraint(dm.model,
         dot(costs, dm.y) <= dm.np.budget)
 end 
+
+function segmentmatchingconstraint(dm::DesignModel)
+    for s1 in 1:dm.np.nsegments, s2 in (s1+1):dm.np.nsegments
+        if (sort(dm.np.segments[s1]) == sort(dm.np.segments[s2]))  
+            JuMP.@constraint(dm.model, dm.y[s1] == dm.y[s2])
+        end
+    end 
+end 

@@ -33,6 +33,7 @@ function DesignModel(
     routeopenconstraint(dm)
     ridetransitconstraint(dm)
     budgetconstraint(dm)
+    segmentmatchingconstraint(dm)
 
     # Objective
     ridershipobjective(dm)
