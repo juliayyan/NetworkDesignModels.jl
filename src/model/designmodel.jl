@@ -34,5 +34,8 @@ function DesignModel(
     ridetransitconstraint(dm)
     budgetconstraint(dm)
 
+    # Objective
+    ridershipobjective(dm)
+
     dm
 end 
