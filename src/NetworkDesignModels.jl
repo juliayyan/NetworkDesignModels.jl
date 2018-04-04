@@ -1,5 +1,13 @@
 module NetworkDesignModels
+    
+    export DesignModel
 
-# package code goes here
+    import DataFrames, Iterators, JuMP, Gurobi
+    using TransitNetworks
 
-end # module
+    include("model/designmodel.jl")
+    include("model/variables.jl")
+    include("model/constraints.jl")
+    include("model/objective.jl")
+
+end
