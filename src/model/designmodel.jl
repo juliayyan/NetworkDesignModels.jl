@@ -31,6 +31,7 @@ function DesignModel(
 
     # Constraints
     routeopenconstraint(dm)
+    ridetransitconstraint(dm)
 
     dm
 end 
