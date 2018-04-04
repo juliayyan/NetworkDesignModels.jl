@@ -32,6 +32,7 @@ function DesignModel(
     # Constraints
     routeopenconstraint(dm)
     ridetransitconstraint(dm)
+    budgetconstraint(dm)
 
     dm
 end 

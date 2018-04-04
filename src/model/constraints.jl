@@ -31,3 +31,11 @@ function ridetransitconstraint(dm::DesignModel)
         sum(dm.open[routeoptions[u,v][r]] 
             for r in 1:length(routeoptions[u,v])))
 end 
+
+function budgetconstraint(dm::DesignModel)
+    costs = [sum([TransitNetworks.haversinedistance(dm.np, 
+                    seg[i], seg[i+1]) for i in 1:length(seg)-1])
+                for seg in dm.np.segments]
+    JuMP.@constraint(dm.model,
+        dot(costs, dm.y) <= dm.np.budget)
+end 
