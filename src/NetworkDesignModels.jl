@@ -13,7 +13,8 @@ module NetworkDesignModels
     function NetworkCoverageModel(
             np::TN.TransitNetworkProblem;
             initialbudget::Int=0,
-            solver = Gurobi.GurobiSolver()
+            solver = Gurobi.GurobiSolver(),
+            budgettype::Symbol = :count
         )
         model = JuMP.Model(solver=solver)
         JuMP.@variable(model, x[l=1:length(np.lines)], Bin)
@@ -35,8 +36,18 @@ module NetworkDesignModels
              r=1:TN.nroutes(np,u,v), s=TN.stages(np,u,v,r)],
             θ[u,v,r] <= sum(x[l] for l in 1:length(np.lines) if np.linesegments[l,s])
         )
-        JuMP.@constraint(model, sum(x) <= budget)
 
+        if budgettype == :count 
+            costs = ones(length(np.lines))
+        elseif budgettype == :distance         
+            costs = [sum(TransitNetworks.haversinedistance(np,np.lines[l][i],np.lines[l][i+1])
+                         for i in 1:length(np.lines[l])-1) 
+                     for l in 1:length(np.lines)]
+        else
+            error("Incompatible budgettype") 
+        end 
+        JuMP.@constraint(model, dot(costs, x) <= budget)
+        
         JuMP.fix(budget, initialbudget)
 
         NetworkCoverageModel(np, model, budget, x, θ)
