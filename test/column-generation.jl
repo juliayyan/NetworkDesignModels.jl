@@ -53,11 +53,12 @@ module ColumnGeneration
     end 
     
     @testset "Generating Columns" begin
+        budget = 100 # corresponds to about 1/3 of the key budget (296)
         rmp = NetworkDesignModels.MasterProblem(
             np, 
             linelist = copy(np.lines), 
-            initialbudget = 100) # corresponds to about 1/3 of the key budget (296)
-        solve(rmp.model)
+            initialbudget = budget)
+        NetworkDesignModels.optimize(rmp, 100)
         @test JuMP.getobjectivevalue(rmp.model) == 93587.42418280317
 
         sp = NetworkDesignModels.SubProblem(np);
@@ -68,7 +69,7 @@ module ColumnGeneration
         @test JuMP.getobjectivevalue(sp.model) == 294.650731361031
 
         NetworkDesignModels.addcolumn!(rmp, path)
-        solve(rmp.model)
+        NetworkDesignModels.optimize(rmp, 100)
         @test JuMP.getobjectivevalue(rmp.model) == 93882.0749141642    
     end 
 
