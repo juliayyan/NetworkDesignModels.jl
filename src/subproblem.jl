@@ -5,7 +5,7 @@ mutable struct SubProblem
     snk::Vector{JuMP.Variable}
     edg::JuMP.JuMPDict{JuMP.Variable}
     srv::JuMP.JuMPDict{JuMP.Variable}
-    dists::Matrix{Float64}
+    dists::Dict{Tuple{Int,Int},Float64}
     outneighbors::Vector{Vector{Int}}
     inneighbors::Vector{Vector{Int}}
 end
@@ -18,20 +18,18 @@ function SubProblem(
     
     const nstns = np.nstations
 
-    dists = zeros(nstns, nstns); 
+    dists = Dict{Tuple{Int,Int},Float64}() 
+    outneighbors = [Int[] for u in 1:nstns]
+    inneighbors  = [Int[] for u in 1:nstns]
     for u in 1:nstns, v in (u+1):nstns 
-        dists[u,v] = TN.haversinedistance(np,u,v)
-        dists[v,u] = dists[u,v]
-    end 
-    outneighbors = [setdiff(find(dists[i,:] .< maxdist), 1:i) for i in 1:nstns]
-    inneighbors = [Int[] for u in 1:nstns]
-    for u in 1:nstns
-        n = length(outneighbors[u])
-        for i in 1:n 
-            v = outneighbors[u][i]
+        d = TN.haversinedistance(np,u,v)
+        if d < maxdist
+            dists[u,v] = d 
+            dists[v,u] = d
+            push!(outneighbors[u], v)
             push!(inneighbors[v], u)
         end 
-    end
+    end 
 
     sp = JuMP.Model(solver=solver)
 
