@@ -11,6 +11,7 @@ mutable struct MasterProblem
     bcon::JuMP.ConstraintRef
     xub::Array{JuMP.ConstraintRef}
     choseub::JuMP.JuMPDict{JuMP.ConstraintRef}
+    solver
 end
 
 nonzerodests(np::TN.TransitNetworkProblem, u::Int) =
@@ -56,11 +57,11 @@ function MasterProblem(
     rmp, budget, x, θ, choseline, bcon, xub, choseub = 
         mastermodel(np, linelist, commutelines, costs, 
                     solver)
-
     JuMP.fix(budget, initialbudget)
     
     MasterProblem(np, linelist, commutelines, costs,
-        rmp, budget, x, θ, choseline, bcon, xub, choseub)
+        rmp, budget, x, θ, choseline, bcon, xub, choseub,
+        solver)
 end 
 
 function mastermodel(
@@ -110,6 +111,27 @@ function mastermodel(
     JuMP.@constraint(rmp, bcon, dot(costs, x) <= budget)
 
     rmp, budget, x, θ, choseline, bcon, xub, choseub
+end 
+
+function addcolumn!(rmp::MasterProblem,
+    line::Vector{Int})
+    # recompute line information
+    const nlinesold = length(rmp.linelist)
+    push!(rmp.linelist, line)
+    push!(rmp.linelist, reverse(line))
+    addline!(rmp.np, rmp.commutelines, line, nlinesold+1)
+    addline!(rmp.np, rmp.commutelines, reverse(line), nlinesold+2)
+    push!(rmp.costs, linecost(rmp.np, line))
+    push!(rmp.costs, linecost(rmp.np, reverse(line)))
+    initialbudget = JuMP.getvalue(rmp.budget)
+
+    rmp.model, rmp.budget, 
+    rmp.x, rmp.θ, rmp.choseline, 
+    rmp.bcon, rmp.xub, rmp.choseub = 
+        mastermodel(rmp.np, 
+            rmp.linelist, rmp.commutelines, rmp.costs, 
+            rmp.solver)
+    JuMP.fix(rmp.budget, initialbudget)
 end 
 
 function optimize(mp::MasterProblem, budget::Int)

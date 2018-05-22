@@ -67,12 +67,7 @@ module ColumnGeneration
         @test path == [8, 27, 53, 175, 177, 179, 182, 255]
         @test JuMP.getobjectivevalue(sp.model) == 294.650731361031
 
-        lines = copy(np.lines)
-        push!(lines, path)
-        push!(lines, reverse(path))
-        rmp = NetworkDesignModels.MasterProblem(np, 
-            linelist = lines, 
-            initialbudget = 100)
+        NetworkDesignModels.addcolumn!(rmp, path)
         solve(rmp.model)
         @test JuMP.getobjectivevalue(rmp.model) == 93882.0749141642    
     end 
