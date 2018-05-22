@@ -20,6 +20,18 @@ linecost(np::TN.TransitNetworkProblem, line::Vector{Int}) =
     sum(TN.haversinedistance(np, line[i], line[i+1])
         for i in 1:length(line)-1)
 
+function addline!(
+    np::TN.TransitNetworkProblem,
+    commutelines::Dict{Tuple{Int,Int},Vector{Int}},
+    line::Vector{Int},
+    lineindex::Int)
+    for u in line, v in line
+        u == v && continue
+        !in(v, nonzerodests(np,u)) && continue
+        push!(commutelines[u,v], lineindex)
+    end 
+end 
+
 function MasterProblem(
     np::TN.TransitNetworkProblem;
     initialbudget::Int = 0,
@@ -35,11 +47,7 @@ function MasterProblem(
         commutelines[u,v] = Int[]
     end 
     for l in 1:nlines 
-        for u in linelist[l], v in linelist[l]
-            u == v && continue
-            !in(v, nonzerodests(np,u)) && continue
-            push!(commutelines[u,v], l)
-        end 
+        addline!(np, commutelines, linelist[l], l)
     end 
 
     # cost computation
