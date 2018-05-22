@@ -1,6 +1,8 @@
 mutable struct MasterProblem
     np::TN.TransitNetworkProblem
     linelist::Vector{Vector{Int}}
+    commutelines::Dict{Tuple{Int,Int},Vector{Int}}
+    costs::Vector{Float64}
     model::JuMP.Model
     budget::JuMP.Variable
     x::Vector{JuMP.Variable}
@@ -78,7 +80,8 @@ function MasterProblem(
     
     JuMP.fix(budget, initialbudget)
     
-    MasterProblem(np, linelist, rmp, budget, x, θ, choseline, bcon, xub, choseub)
+    MasterProblem(np, linelist, commutelines, costs,
+        rmp, budget, x, θ, choseline, bcon, xub, choseub)
 end 
 
 function optimize(mp::MasterProblem, budget::Int)
