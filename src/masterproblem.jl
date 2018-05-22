@@ -38,6 +38,30 @@ function MasterProblem(
         end 
     end 
 
+    # cost computation
+    costs = [sum(TN.haversinedistance(np, linelist[l][i], linelist[l][i+1])
+             for i in 1:length(linelist[l])-1) 
+             for l in 1:length(linelist)]
+
+    rmp, budget, x, θ, choseline, bcon, xub, choseub = 
+        mastermodel(np, linelist, commutelines, costs, 
+                    solver)
+
+    JuMP.fix(budget, initialbudget)
+    
+    MasterProblem(np, linelist, commutelines, costs,
+        rmp, budget, x, θ, choseline, bcon, xub, choseub)
+end 
+
+function mastermodel(
+    np::TN.TransitNetworkProblem,
+    linelist::Vector{Vector{Int}},
+    commutelines::Dict{Tuple{Int,Int},Vector{Int}},
+    costs::Vector{Float64},
+    solver)
+
+    const nlines = length(linelist)
+
     rmp = JuMP.Model(solver=solver)
     JuMP.@variable(rmp, x[l=1:nlines] >= 0)
     JuMP.@variable(rmp, budget)
@@ -73,15 +97,9 @@ function MasterProblem(
     )
 
     # budget constraint
-    costs = [sum(TN.haversinedistance(np, linelist[l][i], linelist[l][i+1])
-             for i in 1:length(linelist[l])-1) 
-             for l in 1:length(linelist)]
     JuMP.@constraint(rmp, bcon, dot(costs, x) <= budget)
-    
-    JuMP.fix(budget, initialbudget)
-    
-    MasterProblem(np, linelist, commutelines, costs,
-        rmp, budget, x, θ, choseline, bcon, xub, choseub)
+
+    rmp, budget, x, θ, choseline, bcon, xub, choseub
 end 
 
 function optimize(mp::MasterProblem, budget::Int)
