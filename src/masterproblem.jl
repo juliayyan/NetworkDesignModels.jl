@@ -16,6 +16,10 @@ end
 nonzerodests(np::TN.TransitNetworkProblem, u::Int) =
     find(np.odmatrix[u,:] .> 0)
 
+linecost(np::TN.TransitNetworkProblem, line::Vector{Int}) = 
+    sum(TN.haversinedistance(np, line[i], line[i+1])
+        for i in 1:length(line)-1)
+
 function MasterProblem(
     np::TN.TransitNetworkProblem;
     initialbudget::Int = 0,
@@ -39,9 +43,7 @@ function MasterProblem(
     end 
 
     # cost computation
-    costs = [sum(TN.haversinedistance(np, linelist[l][i], linelist[l][i+1])
-             for i in 1:length(linelist[l])-1) 
-             for l in 1:length(linelist)]
+    costs = [linecost(np, line) for line in linelist]
 
     rmp, budget, x, θ, choseline, bcon, xub, choseub = 
         mastermodel(np, linelist, commutelines, costs, 
