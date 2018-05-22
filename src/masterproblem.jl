@@ -28,13 +28,13 @@ function MasterProblem(
     # (u,v) --> lines that connect u and v
     commutelines = Dict{Tuple{Int,Int},Vector{Int}}()
     for u in 1:np.nstations, v in nonzerodests(np,u)
-        commutelines[(u,v)] = Int[]
+        commutelines[u,v] = Int[]
     end 
     for l in 1:nlines 
         for u in linelist[l], v in linelist[l]
             u == v && continue
             !in(v, nonzerodests(np,u)) && continue
-            push!(commutelines[(u,v)], l)
+            push!(commutelines[u,v], l)
         end 
     end 
 
@@ -93,7 +93,7 @@ function mastermodel(
     )
     JuMP.@constraint(rmp,
         choseline[u=1:np.nstations, v=nonzerodests(np,u)],
-        θ[u,v] <= sum(x[l] for l in commutelines[(u,v)])
+        θ[u,v] <= sum(x[l] for l in commutelines[u,v])
     )
 
     # budget constraint
