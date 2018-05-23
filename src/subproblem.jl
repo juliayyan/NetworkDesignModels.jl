@@ -10,10 +10,22 @@ mutable struct SubProblem
     inneighbors::Vector{Vector{Int}}
 end
 
+function dir(np::TN.TransitNetworkProblem, u::Int, v::Int)
+    latu = np.latlngs[u,1]
+    latv = np.latlngs[v,1]
+    lonu = np.latlngs[u,2]
+    lonv = np.latlngs[v,2]
+    x = cosd(latv)*sind(lonv-lonu)
+    y = cosd(latu)*sind(latv) - sind(latu)*cosd(latv)*cosd(lonv-lonu)
+    [x,y]
+end 
+
 function SubProblem(
     np::TN.TransitNetworkProblem;
     solver = Gurobi.GurobiSolver(OutputFlag = 0),
-    maxdist::Float64 = 0.5
+    maxdist::Float64 = 0.5,
+    direction::Vector{Float64} = [0.0,1.0],
+    delta::Float64 = 1.0
     )
     
     const nstns = np.nstations
@@ -23,11 +35,18 @@ function SubProblem(
     inneighbors  = [Int[] for u in 1:nstns]
     for u in 1:nstns, v in (u+1):nstns 
         d = TN.haversinedistance(np,u,v)
-        if d < maxdist
-            dists[u,v] = d 
-            dists[v,u] = d
-            push!(outneighbors[u], v)
-            push!(inneighbors[v], u)
+        b = dir(np,u,v)
+        sim = dot(direction,b)/norm(direction)/norm(b)
+        if (d < maxdist) && (1-abs(sim) < delta)
+            if sim >= 0
+                dists[u,v] = d 
+                push!(outneighbors[u], v)
+                push!(inneighbors[v], u)
+            else
+                dists[v,u] = d
+                push!(outneighbors[v], u)
+                push!(inneighbors[u], v)    
+            end
         end 
     end 
 
