@@ -33,6 +33,7 @@ function SubProblem(
     dists = Dict{Tuple{Int,Int},Float64}() 
     outneighbors = [Int[] for u in 1:nstns]
     inneighbors  = [Int[] for u in 1:nstns]
+    graph = LightGraphs.DiGraph(nstns)
     for u in 1:nstns, v in (u+1):nstns 
         d = TN.haversinedistance(np,u,v)
         b = dir(np,u,v)
@@ -42,13 +43,16 @@ function SubProblem(
                 dists[u,v] = d 
                 push!(outneighbors[u], v)
                 push!(inneighbors[v], u)
+                LightGraphs.add_edge!(graph, (u,v))
             else
                 dists[v,u] = d
                 push!(outneighbors[v], u)
                 push!(inneighbors[u], v)    
+                LightGraphs.add_edge!(graph, (v,u))
             end
         end 
     end 
+    @assert !LightGraphs.is_cyclic(graph)
 
     sp = JuMP.Model(solver=solver)
 
