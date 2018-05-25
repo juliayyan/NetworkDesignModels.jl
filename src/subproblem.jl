@@ -111,6 +111,8 @@ function generatecolumn(sp::SubProblem, p, q)
             end 
         end 
     end 
-    @assert sum(JuMP.getvalue(sp.edg)) == length(path)-1
+    if (length(path) > 0) && (sum(JuMP.getvalue(sp.edg)) != length(path)-1)
+        error("Dual solution is not a valid path")
+    end 
     path
 end 
