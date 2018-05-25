@@ -111,5 +111,6 @@ function generatecolumn(sp::SubProblem, p, q)
             end 
         end 
     end 
+    @assert sum(JuMP.getvalue(sp.edg)) == length(path)-1
     path
 end 
