@@ -25,7 +25,8 @@ function SubProblem(
     solver = Gurobi.GurobiSolver(OutputFlag = 0),
     maxdist::Float64 = 0.5,
     direction::Vector{Float64} = [0.0,1.0],
-    delta::Float64 = 1.0
+    delta::Float64 = 1.0,
+    maxlength::Int = 30
     )
     
     const nstns = np.nstations
@@ -76,6 +77,7 @@ function SubProblem(
         sum(src) == 1)
     JuMP.@constraint(sp,
         sum(snk) == 1)
+    JuMP.@constraint(sp, sum(edg) <= maxlength)
 
     # demand service
     JuMP.@constraint(sp,
