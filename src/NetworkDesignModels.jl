@@ -5,19 +5,20 @@ module NetworkDesignModels
     mutable struct NetworkCoverageModel
         np::TN.TransitNetworkProblem
         model::JuMP.Model
-        budget::JuMP.Variable
-        x::Vector{JuMP.Variable}
+        budget::Vector{JuMP.Variable}
+        x::Matrix{JuMP.Variable}
         θ::JuMP.JuMPDict{JuMP.Variable}
     end
 
-    function NetworkCoverageModel(
-            np::TN.TransitNetworkProblem;
-            initialbudget::Int=0,
+    function NetworkCoverageModel{T}(
+            np::TN.TransitNetworkProblem{Matrix{T}};
+            initialbudget::Vector{Int} = Int[0],
             solver = Gurobi.GurobiSolver(),
             budgettype::Symbol = :count
-        )
+        ) where {T <: Real}
+        nlines = length(np.lines)
         model = JuMP.Model(solver=solver)
-        JuMP.@variable(model, x[l=1:length(np.lines)], Bin)
+        JuMP.@variable(model, x[l=1:nlines,1], Bin)
         JuMP.@variable(model, budget)
         JuMP.@variable(model,
             θ[u=1:np.nstations,v=TN.dests(np,u), r=1:TN.nroutes(np,u,v)] >= 0
@@ -34,29 +35,30 @@ module NetworkDesignModels
         JuMP.@constraint(model,
             [u=1:np.nstations, v=TN.dests(np,u),
              r=1:TN.nroutes(np,u,v), s=TN.stages(np,u,v,r)],
-            θ[u,v,r] <= sum(x[l] for l in 1:length(np.lines) if np.linesegments[l,s])
+            θ[u,v,r] <= sum(x[l] for l in 1:nlines if np.linesegments[l,s])
         )
 
         if budgettype == :count 
-            costs = ones(length(np.lines))
+            costs = ones(nlines)
         elseif budgettype == :distance         
             costs = [sum(TransitNetworks.haversinedistance(np,np.lines[l][i],np.lines[l][i+1])
                          for i in 1:length(np.lines[l])-1) 
-                     for l in 1:length(np.lines)]
+                     for l in 1:nlines]
         else
             error("Incompatible budgettype") 
         end 
-        JuMP.@constraint(model, dot(costs, x) <= budget)
+        JuMP.@constraint(model, sum(costs[l]*x[l,1] for l in 1:nlines) <= budget)
         
         JuMP.fix(budget, initialbudget)
 
-        NetworkCoverageModel(np, model, budget, x, θ)
+        NetworkCoverageModel(np, model, JuMP.Variable[budget], x, θ)
     end
 
     function optimize(nm::NetworkCoverageModel, budget::Int)
-        JuMP.fix(nm.budget, budget)
+        JuMP.fix(nm.budget[1], budget)
         JuMP.solve(nm.model)
         round.(Int, JuMP.getvalue.(nm.x))
     end
 
+    include("dynamicproblem.jl")
 end
