@@ -9,7 +9,6 @@ mutable struct MasterProblem
     θ::JuMP.JuMPDict{JuMP.Variable}
     choseline::JuMP.JuMPDict{JuMP.ConstraintRef}
     bcon::JuMP.ConstraintRef
-    xub::Array{JuMP.ConstraintRef}
     choseub::JuMP.JuMPDict{JuMP.ConstraintRef}
     solver
 end
@@ -33,11 +32,27 @@ function addline!(
     end 
 end 
 
+function uniquelines(linelist::Vector{Vector{Int}})
+    uniquelines = Vector{Int}[]
+    for line in linelist
+        isunique = true
+        for line2 in uniquelines 
+            if (length(line) == length(line2)) && 
+               all(sort(line) .== sort(line2))
+                isunique = false
+                break
+            end
+        end
+        isunique && push!(uniquelines, line)
+    end
+    uniquelines
+end
+
 function MasterProblem(
     np::TN.TransitNetworkProblem;
     initialbudget::Int = 0,
     solver = Gurobi.GurobiSolver(OutputFlag = 0),
-    linelist::Vector{Vector{Int}} = np.lines
+    linelist::Vector{Vector{Int}} = uniquelines(np.lines)
     )
     
     const nlines = length(linelist)
@@ -54,13 +69,13 @@ function MasterProblem(
     # cost computation
     costs = [linecost(np, line) for line in linelist]
 
-    rmp, budget, x, θ, choseline, bcon, xub, choseub = 
+    rmp, budget, x, θ, choseline, bcon, choseub = 
         mastermodel(np, linelist, commutelines, costs, 
                     solver)
     JuMP.fix(budget, initialbudget)
     
     MasterProblem(np, linelist, commutelines, costs,
-        rmp, budget, x, θ, choseline, bcon, xub, choseub,
+        rmp, budget, x, θ, choseline, bcon, choseub,
         solver)
 end 
 
@@ -87,16 +102,6 @@ function mastermodel(
                                         for u in 1:np.nstations)
     )
 
-    # x constraints
-    JuMP.@constraint(rmp, 
-        xub[l=1:nlines], 
-        x[l] <= 1)
-    for l in 1:nlines, l2 in (l+1):nlines
-        if sort(linelist[l]) == sort(linelist[l2])
-            JuMP.@constraint(rmp, x[l] == x[l2])
-        end 
-    end 
-
     # choice constraints
     JuMP.@constraint(rmp, 
         choseub[u=1:np.nstations, v=nonzerodests(np,u)],
@@ -110,7 +115,7 @@ function mastermodel(
     # budget constraint
     JuMP.@constraint(rmp, bcon, dot(costs, x) <= budget)
 
-    rmp, budget, x, θ, choseline, bcon, xub, choseub
+    rmp, budget, x, θ, choseline, bcon, choseub
 end 
 
 function addcolumn!(rmp::MasterProblem,
@@ -118,16 +123,13 @@ function addcolumn!(rmp::MasterProblem,
     # recompute line information
     const nlinesold = length(rmp.linelist)
     push!(rmp.linelist, line)
-    push!(rmp.linelist, reverse(line))
     addline!(rmp.np, rmp.commutelines, line, nlinesold+1)
-    addline!(rmp.np, rmp.commutelines, reverse(line), nlinesold+2)
     push!(rmp.costs, linecost(rmp.np, line))
-    push!(rmp.costs, linecost(rmp.np, reverse(line)))
     initialbudget = JuMP.getvalue(rmp.budget)
 
     rmp.model, rmp.budget, 
     rmp.x, rmp.θ, rmp.choseline, 
-    rmp.bcon, rmp.xub, rmp.choseub = 
+    rmp.bcon, rmp.choseub = 
         mastermodel(rmp.np, 
             rmp.linelist, rmp.commutelines, rmp.costs, 
             rmp.solver)

@@ -56,24 +56,26 @@ module ColumnGeneration
         budget = 100 # corresponds to about 1/3 of the key budget (296)
         rmp = NetworkDesignModels.MasterProblem(
             np, 
-            linelist = copy(np.lines), 
             initialbudget = budget)
         NetworkDesignModels.optimize(rmp, budget)
+        @test length(rmp.linelist) == 23
         @test JuMP.getobjectivevalue(rmp.model) == 93587.42418280317
 
         sp = NetworkDesignModels.SubProblem(np);
         p = getdual(rmp.choseline);
         q = getdual(rmp.bcon);
         path = NetworkDesignModels.generatecolumn(sp, p, q)
-        @test path == [342,  98,  99,  22,  36,  19,  31,  24,  16, 253, 
-                       201, 159, 349, 141, 385, 364, 317, 139, 359, 363, 
-                       371, 160, 377, 305, 331]
-        @test JuMP.getobjectivevalue(sp.model) == 2221.6866693007005
+        @test path == [227, 166, 264, 342, 98, 99, 22, 
+                       36, 19, 31, 24, 16, 253, 201, 159, 
+                       349, 141, 385, 25, 46, 364, 317, 
+                       139, 359, 363, 371, 160, 377, 305, 331]
+        @test JuMP.getobjectivevalue(sp.model) == 2316.560035938597
         @test sum(getvalue(sp.edg)) == length(path)-1
 
         NetworkDesignModels.addcolumn!(rmp, path)
         NetworkDesignModels.optimize(rmp, budget)
-        @test JuMP.getobjectivevalue(rmp.model) == 95724.1108521039
+        @test JuMP.getobjectivevalue(rmp.model) == 95674.68627657647
+        @test length(rmp.linelist) == 24
     end 
 
 end
