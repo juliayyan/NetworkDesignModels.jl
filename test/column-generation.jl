@@ -65,17 +65,15 @@ module ColumnGeneration
         p = getdual(rmp.choseline);
         q = getdual(rmp.bcon);
         path = NetworkDesignModels.generatecolumn(sp, p, q)
-        @test path == [303,167,169,188,189,190,191,206,341,
-                       205,194,195,158,175,196,197,93,53,
-                       176,178,54,179,180,182,255,18,1,17,
-                       20,41,384,363,371,160,377,305,331,56,
-                       327,313,374]
-        @test JuMP.getobjectivevalue(sp.model) == 2390.8806346684364
+        @test path == [342,  98,  99,  22,  36,  19,  31,  24,  16, 253, 
+                       201, 159, 349, 141, 385, 364, 317, 139, 359, 363, 
+                       371, 160, 377, 305, 331]
+        @test JuMP.getobjectivevalue(sp.model) == 2221.6866693007005
         @test sum(getvalue(sp.edg)) == length(path)-1
 
         NetworkDesignModels.addcolumn!(rmp, path)
         NetworkDesignModels.optimize(rmp, budget)
-        @test JuMP.getobjectivevalue(rmp.model) == 95626.38754635086
+        @test JuMP.getobjectivevalue(rmp.model) == 95724.1108521039
     end 
 
 end
