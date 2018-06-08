@@ -4,6 +4,7 @@ module NetworkDesignModels
     const TN = TransitNetworks
 
     include("coveragemodel.jl")
+    include("utils.jl")
     include("masterproblem.jl")
     include("subproblem.jl")
 
