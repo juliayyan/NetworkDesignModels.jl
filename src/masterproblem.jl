@@ -26,7 +26,7 @@ function MasterProblem(
 
     # (u,v) --> lines that connect u and v
     @assert nlegs <= 2
-    commutelines = fill(Dict{Tuple{Int,Int},Any}(), nlegs)
+    commutelines = [Dict{Tuple{Int,Int},Any}() for i in 1:nlegs]
     for u in 1:np.nstations, v in nonzerodests(np,u)
         commutelines[1][u,v] = Int[]
         if nlegs == 2 
