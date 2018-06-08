@@ -1,7 +1,7 @@
 mutable struct MasterProblem
     np::TN.TransitNetworkProblem
     linelist::Vector{Vector{Int}}
-    commutelines::Vector{Dict{Tuple{Int,Int},Vector{Int}}}
+    commutelines::Vector{Dict{Tuple{Int,Int},Any}}
     costs::Vector{Float64}
     model::JuMP.Model
     budget::JuMP.Variable
@@ -13,18 +13,6 @@ mutable struct MasterProblem
     solver
 end
 
-function addline!(
-    np::TN.TransitNetworkProblem,
-    commutelines::Vector{Dict{Tuple{Int,Int},Vector{Int}}},
-    line::Vector{Int},
-    lineindex::Int)
-    for u in line, v in line
-        u == v && continue
-        !in(v, nonzerodests(np,u)) && continue
-        push!(commutelines[1][u,v], lineindex)
-    end 
-end 
-
 function MasterProblem(
     np::TN.TransitNetworkProblem;
     initialbudget::Int = 0,
@@ -34,25 +22,30 @@ function MasterProblem(
     )
     
     const nlines = length(linelist)
+    linelistcopy = Vector{Int}[]
 
     # (u,v) --> lines that connect u and v
-    commutelines = fill(Dict{Tuple{Int,Int},Vector{Int}}(), nlegs)
-    for u in 1:np.nstations, v in nonzerodests(np,u), i in 1:nlegs
-        commutelines[i][u,v] = Int[]
+    @assert nlegs <= 2
+    commutelines = fill(Dict{Tuple{Int,Int},Any}(), nlegs)
+    for u in 1:np.nstations, v in nonzerodests(np,u)
+        commutelines[1][u,v] = Int[]
+        if nlegs == 2 
+            commutelines[2][u,v] = Tuple{Int,Int}[]
+        end
     end 
     for l in 1:nlines 
-        addline!(np, commutelines, linelist[l], l)
+        addline!(np, linelistcopy, commutelines, linelist[l])
     end 
 
     # cost computation
-    costs = [linecost(np, line) for line in linelist]
+    costs = [linecost(np, line) for line in linelistcopy]
 
     rmp, budget, x, θ, choseline, bcon, choseub = 
-        mastermodel(np, linelist, commutelines, costs, 
+        mastermodel(np, linelistcopy, commutelines, costs, 
                     solver)
     JuMP.fix(budget, initialbudget)
     
-    MasterProblem(np, linelist, commutelines, costs,
+    MasterProblem(np, linelistcopy, commutelines, costs,
         rmp, budget, x, θ, choseline, bcon, choseub,
         solver)
 end 
@@ -60,7 +53,7 @@ end
 function mastermodel(
     np::TN.TransitNetworkProblem,
     linelist::Vector{Vector{Int}},
-    commutelines::Vector{Dict{Tuple{Int,Int},Vector{Int}}},
+    commutelines::Vector{Dict{Tuple{Int,Int},Any}},
     costs::Vector{Float64},
     solver)
 
@@ -99,9 +92,7 @@ end
 function addcolumn!(rmp::MasterProblem,
     line::Vector{Int})
     # recompute line information
-    const nlinesold = length(rmp.linelist)
-    push!(rmp.linelist, line)
-    addline!(rmp.np, rmp.commutelines, line, nlinesold+1)
+    addline!(rmp.np, rmp.linelist, rmp.commutelines, line)
     push!(rmp.costs, linecost(rmp.np, line))
     initialbudget = JuMP.getvalue(rmp.budget)
 
@@ -112,6 +103,46 @@ function addcolumn!(rmp::MasterProblem,
             rmp.linelist, rmp.commutelines, rmp.costs, 
             rmp.solver)
     JuMP.fix(rmp.budget, initialbudget)
+end 
+
+# adds line to `oldlines` and `commutelines`
+function addline!(
+    np::TN.TransitNetworkProblem,
+    oldlines::Vector{Vector{Int}},
+    commutelines::Vector{Dict{Tuple{Int,Int},Any}},
+    line::Vector{Int};
+    maxdot = 0.5)
+    l1 = length(oldlines)+1
+    # single-leg commutes
+    for u in line, v in line
+        u == v && continue
+        !in(v, nonzerodests(np,u)) && continue
+        push!(commutelines[1][u,v], l1)
+    end 
+    # two-leg commutes
+    if length(commutelines) == 2
+        for l2 in 1:length(oldlines)
+            line2 = oldlines[l2]
+            xfrstns = intersect(line,line2)
+            length(xfrstns) == 0 && continue
+            stns1 = setdiff(line , xfrstns)
+            stns2 = setdiff(line2, xfrstns)
+            for u in stns1, v in stns2
+                for w in xfrstns 
+                    dir1 = dir(np,u,w)
+                    dir2 = dir(np,w,v)
+                    if dot(dir1,dir2)/norm(dir1)/norm(dir2) <= maxdot
+                        haskey(commutelines[2], (u,v)) && 
+                            push!(commutelines[2][(u,v)], (l1,l2))
+                        haskey(commutelines[2], (v,u)) && 
+                            push!(commutelines[2][(v,u)], (l2,l1))
+                        break
+                    end
+                end        
+            end
+        end
+    end
+    push!(oldlines, line)
 end 
 
 function optimize(mp::MasterProblem, budget::Int)
