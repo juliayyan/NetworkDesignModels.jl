@@ -1,7 +1,7 @@
 mutable struct MasterProblem
     np::TN.TransitNetworkProblem
     linelist::Vector{Vector{Int}}
-    commutelines::Dict{Tuple{Int,Int},Vector{Int}}
+    commutelines::Vector{Dict{Tuple{Int,Int},Vector{Int}}}
     costs::Vector{Float64}
     model::JuMP.Model
     budget::JuMP.Variable
@@ -22,13 +22,13 @@ linecost(np::TN.TransitNetworkProblem, line::Vector{Int}) =
 
 function addline!(
     np::TN.TransitNetworkProblem,
-    commutelines::Dict{Tuple{Int,Int},Vector{Int}},
+    commutelines::Vector{Dict{Tuple{Int,Int},Vector{Int}}},
     line::Vector{Int},
     lineindex::Int)
     for u in line, v in line
         u == v && continue
         !in(v, nonzerodests(np,u)) && continue
-        push!(commutelines[u,v], lineindex)
+        push!(commutelines[1][u,v], lineindex)
     end 
 end 
 
@@ -52,15 +52,16 @@ function MasterProblem(
     np::TN.TransitNetworkProblem;
     initialbudget::Int = 0,
     solver = Gurobi.GurobiSolver(OutputFlag = 0),
-    linelist::Vector{Vector{Int}} = uniquelines(np.lines)
+    linelist::Vector{Vector{Int}} = uniquelines(np.lines),
+    nlegs::Int = 1
     )
     
     const nlines = length(linelist)
 
     # (u,v) --> lines that connect u and v
-    commutelines = Dict{Tuple{Int,Int},Vector{Int}}()
-    for u in 1:np.nstations, v in nonzerodests(np,u)
-        commutelines[u,v] = Int[]
+    commutelines = fill(Dict{Tuple{Int,Int},Vector{Int}}(), nlegs)
+    for u in 1:np.nstations, v in nonzerodests(np,u), i in 1:nlegs
+        commutelines[i][u,v] = Int[]
     end 
     for l in 1:nlines 
         addline!(np, commutelines, linelist[l], l)
@@ -82,7 +83,7 @@ end
 function mastermodel(
     np::TN.TransitNetworkProblem,
     linelist::Vector{Vector{Int}},
-    commutelines::Dict{Tuple{Int,Int},Vector{Int}},
+    commutelines::Vector{Dict{Tuple{Int,Int},Vector{Int}}},
     costs::Vector{Float64},
     solver)
 
@@ -109,7 +110,7 @@ function mastermodel(
     )
     JuMP.@constraint(rmp,
         choseline[u=1:np.nstations, v=nonzerodests(np,u)],
-        θ[u,v] <= sum(x[l] for l in commutelines[u,v])
+        θ[u,v] <= sum(x[l] for l in commutelines[1][u,v])
     )
 
     # budget constraint
