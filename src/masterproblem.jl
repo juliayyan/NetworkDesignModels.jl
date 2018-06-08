@@ -132,10 +132,11 @@ function addline!(
                     dir1 = dir(np,u,w)
                     dir2 = dir(np,w,v)
                     if dot(dir1,dir2)/norm(dir1)/norm(dir2) <= maxdot
+                        pair = (min(l1,l2), max(l1,l2))
                         haskey(commutelines[2], (u,v)) && 
-                            push!(commutelines[2][(u,v)], (l1,l2))
+                            push!(commutelines[2][u,v], pair)
                         haskey(commutelines[2], (v,u)) && 
-                            push!(commutelines[2][(v,u)], (l2,l1))
+                            push!(commutelines[2][v,u], pair)
                         break
                     end
                 end        
