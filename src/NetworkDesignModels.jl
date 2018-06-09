@@ -10,12 +10,12 @@ module NetworkDesignModels
         θ::JuMP.JuMPDict{JuMP.Variable}
     end
 
-    function NetworkCoverageModel{T}(
-            np::TN.TransitNetworkProblem{Matrix{T}};
+    function NetworkCoverageModel(
+            np::TN.TransitNetworkProblem;
             initialbudget::Vector{Int} = Int[0],
             solver = Gurobi.GurobiSolver(),
             budgettype::Symbol = :count
-        ) where {T <: Real}
+        )
         nlines = length(np.lines)
         model = JuMP.Model(solver=solver)
         JuMP.@variable(model, x[l=1:nlines,1], Bin)
