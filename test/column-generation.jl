@@ -78,4 +78,19 @@ module ColumnGeneration
         @test length(rmp.linelist) == 24
     end 
 
+    @testset "Two-Leg Commute Model" begin
+        rmp = NetworkDesignModels.MasterProblem(np, 
+            linelist = [np.lines[1]], 
+            nlegs = 1);
+        NetworkDesignModels.optimize(rmp, 5)
+        @test JuMP.getobjectivevalue(rmp.model) == 10764.0
+
+        rmp = NetworkDesignModels.MasterProblem(np, 
+            linelist = [np.lines[1][1:10],
+                        np.lines[1][10:end]], 
+            nlegs = 2);
+        NetworkDesignModels.optimize(rmp, ceil(Int, 5))
+        @test JuMP.getobjectivevalue(rmp.model) == 10764.0
+    end
+
 end
