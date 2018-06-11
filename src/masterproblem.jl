@@ -144,7 +144,7 @@ function addline!(
                 for w in xfrstns 
                     dir1 = dir(np,u,w)
                     dir2 = dir(np,w,v)
-                    if dot(dir1,dir2)/norm(dir1)/norm(dir2) <= maxdot
+                    if dot(dir1,dir2)/norm(dir1)/norm(dir2) >= maxdot
                         pair = (min(l1,l2), max(l1,l2))
                         haskey(commutelines[2], (u,v)) && 
                             push!(commutelines[2][u,v], pair)
