@@ -61,6 +61,16 @@ function mastermodel(
 
     rmp = JuMP.Model(solver=solver)
     JuMP.@variable(rmp, x[l=1:nlines] >= 0)
+    if length(commutelines) == 2
+        pairs = unique(vcat(values(commutelines[2])...))
+        JuMP.@variable(rmp, aux[pairs] >= 0)
+        JuMP.@constraint(rmp,
+            pair1[p in pairs],
+            aux[p] <= x[p[1]])
+        JuMP.@constraint(rmp,
+            pair2[p in pairs],
+            aux[p] <= x[p[2]])
+    end
     JuMP.@variable(rmp, budget)
     JuMP.@variable(rmp,
         θ[u=1:np.nstations,v=nonzerodests(np,u)] >= 0
@@ -80,9 +90,12 @@ function mastermodel(
     )
     JuMP.@constraint(rmp,
         choseline[u=1:np.nstations, v=nonzerodests(np,u)],
-        θ[u,v] <= sum(x[l] for l in commutelines[1][u,v])
+        θ[u,v] <= sum(x[l] for l in commutelines[1][u,v]) +
+        ((length(commutelines) == 1) || (length(commutelines[2][u,v]) == 0) ? 
+            0 :
+            sum(aux[pair] for pair in commutelines[2][u,v]))
     )
-
+    
     # budget constraint
     JuMP.@constraint(rmp, bcon, dot(costs, x) <= budget)
 
