@@ -60,7 +60,7 @@ function SubProblem(
     JuMP.@variable(sp, src[u=1:nstns], Bin)
     JuMP.@variable(sp, snk[u=1:nstns], Bin)
     JuMP.@variable(sp, edg[u=1:nstns, v=outneighbors[u]], Bin)
-    JuMP.@variable(sp, srv[u=1:nstns, v=nonzerodests(np,u)], Bin)
+    JuMP.@variable(sp, 0 <= srv[u=1:nstns, v=nonzerodests(np,u)] <= 1)
 
     # path constraints
     JuMP.@constraint(sp,
