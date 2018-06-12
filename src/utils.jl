@@ -20,3 +20,11 @@ function uniquelines(linelist::Vector{Vector{Int}})
     end
     uniquelines
 end
+
+function validtransfer(np::TN.TransitNetworkProblem, 
+    u::Int, v::Int, w::Int;
+    maxdot::Float64 = 0.5)
+    dir1 = dir(np,u,w)
+    dir2 = dir(np,w,v)
+    return dot(dir1,dir2)/norm(dir1)/norm(dir2) >= maxdot                
+end

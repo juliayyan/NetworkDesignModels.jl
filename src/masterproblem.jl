@@ -123,8 +123,7 @@ function addline!(
     np::TN.TransitNetworkProblem,
     oldlines::Vector{Vector{Int}},
     commutelines::Vector{Dict{Tuple{Int,Int},Any}},
-    line::Vector{Int};
-    maxdot = 0.5)
+    line::Vector{Int})
     l1 = length(oldlines)+1
     # single-leg commutes
     for u in line, v in line
@@ -142,9 +141,7 @@ function addline!(
             stns2 = setdiff(line2, xfrstns)
             for u in stns1, v in stns2
                 for w in xfrstns 
-                    dir1 = dir(np,u,w)
-                    dir2 = dir(np,w,v)
-                    if dot(dir1,dir2)/norm(dir1)/norm(dir2) >= maxdot
+                    if validtransfer(np,u,v,w)
                         pair = (min(l1,l2), max(l1,l2))
                         haskey(commutelines[2], (u,v)) && 
                             push!(commutelines[2][u,v], pair)
