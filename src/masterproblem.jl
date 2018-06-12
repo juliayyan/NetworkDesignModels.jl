@@ -10,6 +10,8 @@ mutable struct MasterProblem
     choseline::JuMP.JuMPDict{JuMP.ConstraintRef}
     bcon::JuMP.ConstraintRef
     choseub::JuMP.JuMPDict{JuMP.ConstraintRef}
+    pair1
+    pair2
     solver
 end
 
@@ -40,13 +42,13 @@ function MasterProblem(
     # cost computation
     costs = [linecost(np, line) for line in linelistcopy]
 
-    rmp, budget, x, θ, choseline, bcon, choseub = 
+    rmp, budget, x, θ, choseline, bcon, choseub, pair1, pair2 = 
         mastermodel(np, linelistcopy, commutelines, costs, 
                     solver)
     JuMP.fix(budget, initialbudget)
     
     MasterProblem(np, linelistcopy, commutelines, costs,
-        rmp, budget, x, θ, choseline, bcon, choseub,
+        rmp, budget, x, θ, choseline, bcon, choseub, pair1, pair2,
         solver)
 end 
 
@@ -70,6 +72,8 @@ function mastermodel(
         JuMP.@constraint(rmp,
             pair2[p in pairs],
             aux[p] <= x[p[2]])
+    else
+        pair1 = pair2 = nothing
     end
     JuMP.@variable(rmp, budget)
     JuMP.@variable(rmp,
@@ -99,7 +103,7 @@ function mastermodel(
     # budget constraint
     JuMP.@constraint(rmp, bcon, dot(costs, x) <= budget)
 
-    rmp, budget, x, θ, choseline, bcon, choseub
+    rmp, budget, x, θ, choseline, bcon, choseub, pair1, pair2
 end 
 
 function addcolumn!(rmp::MasterProblem,
@@ -111,7 +115,7 @@ function addcolumn!(rmp::MasterProblem,
 
     rmp.model, rmp.budget, 
     rmp.x, rmp.θ, rmp.choseline, 
-    rmp.bcon, rmp.choseub = 
+    rmp.bcon, rmp.choseub, rmp.pair1, rmp.pair2 = 
         mastermodel(rmp.np, 
             rmp.linelist, rmp.commutelines, rmp.costs, 
             rmp.solver)
