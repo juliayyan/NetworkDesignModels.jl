@@ -28,3 +28,13 @@ function validtransfer(np::TN.TransitNetworkProblem,
     dir2 = dir(np,w,v)
     return dot(dir1,dir2)/norm(dir1)/norm(dir2) >= maxdot                
 end
+
+function dir(np::TN.TransitNetworkProblem, u::Int, v::Int)
+    latu = np.latlngs[u,1]
+    latv = np.latlngs[v,1]
+    lonu = np.latlngs[u,2]
+    lonv = np.latlngs[v,2]
+    x = cosd(latv)*sind(lonv-lonu)
+    y = cosd(latu)*sind(latv) - sind(latu)*cosd(latv)*cosd(lonv-lonu)
+    [x,y]
+end 
