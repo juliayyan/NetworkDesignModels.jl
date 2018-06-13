@@ -5,22 +5,30 @@ mutable struct SubProblem
     snk::Vector{JuMP.Variable}
     edg::JuMP.JuMPDict{JuMP.Variable}
     srv::JuMP.JuMPDict{JuMP.Variable}
+    srv_uw
+    srv_wv
+    xfrstops_uw
+    xfrstops_wv
     dists::Dict{Tuple{Int,Int},Float64}
     outneighbors::Vector{Vector{Int}}
     inneighbors::Vector{Vector{Int}}
+    nlegs
 end
 
 function SubProblem(
     np::TN.TransitNetworkProblem;
     solver = Gurobi.GurobiSolver(OutputFlag = 0),
+    linelist::Vector{Vector{Int}} = uniquelines(np.lines),
     maxdist::Float64 = 0.5,
     direction::Vector{Float64} = [0.0,1.0],
     delta::Float64 = 1.0,
-    maxlength::Int = 30
+    maxlength::Int = 30,
+    nlegs::Int = 1
     )
     
     const nstns = np.nstations
 
+    # construct graph and ensure there are no cycles
     dists = Dict{Tuple{Int,Int},Float64}() 
     outneighbors = [Int[] for u in 1:nstns]
     inneighbors  = [Int[] for u in 1:nstns]
@@ -45,12 +53,46 @@ function SubProblem(
     end 
     @assert !LightGraphs.is_cyclic(graph)
 
+    # compute potential transfer stations
+    if nlegs == 2
+        stnlines = [find(in(u, line) for line in linelist) for u in 1:np.nstations]
+        xfrstops_uw = Dict{Tuple{Int,Int},Vector{Int}}()
+        xfrstops_wv = Dict{Tuple{Int,Int},Vector{Int}}()
+        for u in 1:np.nstations, v in nonzerodests(np,u)
+            xfrstops_uw[u,v] = Int[]
+            xfrstops_wv[u,v] = Int[]
+            length(intersect(stnlines[u], stnlines[v])) > 0 && continue
+            for w in 1:np.nstations 
+                if validtransfer(np,u,v,w)
+                    if length(intersect(stnlines[u], stnlines[w])) > 0
+                        push!(xfrstops_uw[u,v], w)
+                    end
+                    if length(intersect(stnlines[v], stnlines[w])) > 0
+                        push!(xfrstops_wv[u,v], w)
+                    end
+                end 
+            end
+        end
+    else
+        xfrstops_uw = xfrstops_wv = nothing
+    end
+
+    # build model
     sp = JuMP.Model(solver=solver)
 
     JuMP.@variable(sp, src[u=1:nstns], Bin)
     JuMP.@variable(sp, snk[u=1:nstns], Bin)
     JuMP.@variable(sp, edg[u=1:nstns, v=outneighbors[u]], Bin)
     JuMP.@variable(sp, 0 <= srv[u=1:nstns, v=nonzerodests(np,u)] <= 1)
+    if nlegs == 2
+        JuMP.@variable(sp, 0 <= srv_uw[u=1:nstns, v=nonzerodests(np,u)] <= 0.5)
+        JuMP.@variable(sp, 0 <= srv_wv[u=1:nstns, v=nonzerodests(np,u)] <= 0.5)
+        JuMP.@constraint(sp, 
+            [u=1:nstns, v=nonzerodests(np,u)],
+            srv[u,v] + srv_uw[u,v] + srv_wv[u,v] <= 1)
+    else 
+        srv_uw = srv_wv = nothing
+    end
 
     # path constraints
     JuMP.@constraint(sp,
@@ -70,21 +112,61 @@ function SubProblem(
     JuMP.@constraint(sp, sum(edg) <= maxlength)
 
     # demand service
+    JuMP.@expression(sp,
+        ingraph[u=1:np.nstations],
+        src[u] + sum(edg[u2,u] for u2 in inneighbors[u]) + snk[u])
     JuMP.@constraint(sp,
         [u=1:nstns, v=nonzerodests(np,u)],
-        srv[u,v] <= src[u] + sum(edg[w,u] for w in inneighbors[u]) + snk[u])
+        srv[u,v] <= ingraph[u])
     JuMP.@constraint(sp,
         [u=1:nstns, v=nonzerodests(np,u)],
-        srv[u,v] <= src[v] + sum(edg[w,v] for w in inneighbors[v]) + snk[v])
+        srv[u,v] <= ingraph[v])
+    if nlegs == 2
+        JuMP.@constraint(sp, 
+            [u=1:nstns, v=nonzerodests(np,u)],
+            srv[u,v] + srv_uw[u,v] + srv_wv[u,v] <= 1)
+        JuMP.@constraint(sp,
+            [u=1:nstns, v=nonzerodests(np,u)],
+            srv_uw[u,v] <= ingraph[v])
+        JuMP.@constraint(sp,
+            [u=1:nstns, v=nonzerodests(np,u)],
+            srv_wv[u,v] <= ingraph[u])
+        JuMP.@constraint(sp,
+            [u=1:nstns, v=nonzerodests(np,u)],
+            srv_uw[u,v] <= 
+            ((length(xfrstops_uw[u,v]) == 0) ?
+                0 : sum(ingraph[w] for w in xfrstops_uw[u,v])
+                )
+            )
+        JuMP.@constraint(sp,
+            [u=1:nstns, v=nonzerodests(np,u)],
+            srv_wv[u,v] <= 
+            ((length(xfrstops_wv[u,v]) == 0) ?
+                0 : sum(ingraph[w] for w in xfrstops_wv[u,v])
+                )
+            )
+    end
 
-    SubProblem(np, sp, src, snk, edg, srv, dists, outneighbors, inneighbors)
+    SubProblem(np, 
+        sp, src, snk, edg, srv, srv_uw, srv_wv,
+        xfrstops_uw, xfrstops_wv,
+        dists, outneighbors, inneighbors,
+        nlegs)
 end 
 
 function generatecolumn(sp::SubProblem, p, q)
     JuMP.@objective(sp.model,
         Max,
-        sum(sum(p[u,v]*sp.srv[u,v] for v in nonzerodests(sp.np,u)) for u in 1:sp.np.nstations) - 
-        q*sum(sp.dists[u,v]*sp.edg[u,v] for u in 1:sp.np.nstations, v in sp.outneighbors[u])
+        sum(sum(p[u,v]*
+            (sp.srv[u,v] + 
+                (sp.nlegs == 1 ? 0 : 
+                 sp.srv_uw[u,v] + sp.srv_wv[u,v])) 
+            for v in nonzerodests(sp.np,u)
+                ) 
+        for u in 1:sp.np.nstations) - 
+        q*sum(sp.dists[u,v]*sp.edg[u,v] 
+            for u in 1:sp.np.nstations, 
+                v in sp.outneighbors[u])
     )  
     JuMP.solve(sp.model)
     
