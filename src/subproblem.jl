@@ -171,11 +171,12 @@ function generatecolumn(sp::SubProblem, p, q)
     JuMP.solve(sp.model)
     
     path = Int[]
-    if JuMP.getobjectivevalue(sp.model) > 0
-        push!(path, findfirst(JuMP.getvalue(sp.src)))
+    if round(JuMP.getobjectivevalue(sp.model)) > 0
+        push!(path, findfirst(round.(JuMP.getvalue(sp.src))))
         count = 1
-        while path[count] != findfirst(JuMP.getvalue(sp.snk))
+        while path[count] != findfirst(round.(JuMP.getvalue(sp.snk)))
             i = path[count]
+            oldcount = count
             for j in sp.outneighbors[i]
                 if round(JuMP.getvalue(sp.edg[i,j]) > 0)
                     push!(path, j)
@@ -183,9 +184,12 @@ function generatecolumn(sp::SubProblem, p, q)
                     break
                 end 
             end 
+            if oldcount == count 
+                error("Potential infinite loop")
+            end
         end 
     end 
-    if (length(path) > 0) && (sum(JuMP.getvalue(sp.edg)) != length(path)-1)
+    if (length(path) > 0) && (round(sum(JuMP.getvalue(sp.edg))) != length(path)-1)
         error("Dual solution is not a valid path")
     end 
     path
