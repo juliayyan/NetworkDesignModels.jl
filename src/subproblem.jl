@@ -154,15 +154,15 @@ function SubProblem(
         nlegs)
 end 
 
-function generatecolumn(sp::SubProblem, p, q)
+function generatecolumn(sp::SubProblem, p, q, s)
     JuMP.@objective(sp.model,
         Max,
-        sum(sum(p[u,v]*
+        sum(sum(min(p[u,v],sp.np.odmatrix[u,v] - s[u,v])*
             (sp.srv[u,v] + 
                 (sp.nlegs == 1 ? 0 : 
                  sp.srv_uw[u,v] + sp.srv_wv[u,v])) 
             for v in nonzerodests(sp.np,u)
-                ) 
+                )
         for u in 1:sp.np.nstations) - 
         q*sum(sp.dists[u,v]*sp.edg[u,v] 
             for u in 1:sp.np.nstations, 
