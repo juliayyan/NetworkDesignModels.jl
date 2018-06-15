@@ -22,11 +22,11 @@ function uniquelines(linelist::Vector{Vector{Int}})
 end
 
 function validtransfer(np::TN.TransitNetworkProblem, 
-    u::Int, v::Int, w::Int;
-    maxdot::Float64 = 0.5)
+    u::Int, v::Int, w::Int,
+    transferparam::Float64)
     dir1 = dir(np,u,w)
     dir2 = dir(np,w,v)
-    return dot(dir1,dir2)/norm(dir1)/norm(dir2) >= maxdot                
+    return dot(dir1,dir2)/norm(dir1)/norm(dir2) >= transferparam                
 end
 
 function dir(np::TN.TransitNetworkProblem, u::Int, v::Int)

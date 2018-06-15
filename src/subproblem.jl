@@ -23,7 +23,8 @@ function SubProblem(
     direction::Vector{Float64} = [0.0,1.0],
     delta::Float64 = 1.0,
     maxlength::Int = 30,
-    nlegs::Int = 1
+    nlegs::Int = 1,
+    transferparam::Float64 = 0.5
     )
     
     const nstns = np.nstations
@@ -63,7 +64,7 @@ function SubProblem(
             xfrstops_wv[u,v] = Int[]
             length(intersect(stnlines[u], stnlines[v])) > 0 && continue
             for w in 1:np.nstations 
-                if validtransfer(np,u,v,w)
+                if validtransfer(np,u,v,w,transferparam)
                     if length(intersect(stnlines[u], stnlines[w])) > 0
                         push!(xfrstops_uw[u,v], w)
                     end

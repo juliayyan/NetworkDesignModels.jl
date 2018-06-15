@@ -2,6 +2,7 @@ mutable struct MasterProblem
     np::TN.TransitNetworkProblem
     linelist::Vector{Vector{Int}}
     commutelines::Vector{Dict{Tuple{Int,Int},Any}}
+    transferparam::Float64
     costs::Vector{Float64}
     model::JuMP.Model
     budget::JuMP.Variable
@@ -20,7 +21,8 @@ function MasterProblem(
     initialbudget::Float64 = 0.0,
     solver = Gurobi.GurobiSolver(OutputFlag = 0),
     linelist::Vector{Vector{Int}} = uniquelines(np.lines),
-    nlegs::Int = 1
+    nlegs::Int = 1,
+    transferparam::Float64 = 0.5 # -1 to 1.  lower allows sharper-angled transfers
     )
     
     const nlines = length(linelist)
@@ -36,7 +38,8 @@ function MasterProblem(
         end
     end 
     for l in 1:nlines 
-        addline!(np, linelistcopy, commutelines, linelist[l])
+        addline!(np, linelistcopy, commutelines, linelist[l],
+            transferparam)
     end 
 
     # cost computation
@@ -47,7 +50,7 @@ function MasterProblem(
                     solver)
     JuMP.fix(budget, initialbudget)
     
-    MasterProblem(np, linelistcopy, commutelines, costs,
+    MasterProblem(np, linelistcopy, commutelines, transferparam, costs,
         rmp, budget, x, θ, choseline, bcon, choseub, pair1, pair2,
         solver)
 end 
@@ -109,7 +112,7 @@ end
 function addcolumn!(rmp::MasterProblem,
     line::Vector{Int})
     # recompute line information
-    addline!(rmp.np, rmp.linelist, rmp.commutelines, line)
+    addline!(rmp.np, rmp.linelist, rmp.commutelines, line, rmp.transferparam)
     push!(rmp.costs, linecost(rmp.np, line))
     initialbudget = JuMP.getvalue(rmp.budget)
 
@@ -127,7 +130,8 @@ function addline!(
     np::TN.TransitNetworkProblem,
     oldlines::Vector{Vector{Int}},
     commutelines::Vector{Dict{Tuple{Int,Int},Any}},
-    line::Vector{Int})
+    line::Vector{Int},
+    transferparam::Float64)
     l1 = length(oldlines)+1
     # single-leg commutes
     for u in line, v in line
@@ -145,7 +149,7 @@ function addline!(
             stns2 = setdiff(line2, xfrstns)
             for u in stns1, v in stns2
                 for w in xfrstns 
-                    if validtransfer(np,u,v,w)
+                    if validtransfer(np,u,v,w,transferparam)
                         pair = (min(l1,l2), max(l1,l2))
                         haskey(commutelines[2], (u,v)) && 
                             push!(commutelines[2][u,v], pair)
