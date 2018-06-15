@@ -17,7 +17,7 @@ end
 
 function MasterProblem(
     np::TN.TransitNetworkProblem;
-    initialbudget::Int = 0,
+    initialbudget::Float64 = 0.0,
     solver = Gurobi.GurobiSolver(OutputFlag = 0),
     linelist::Vector{Vector{Int}} = uniquelines(np.lines),
     nlegs::Int = 1
@@ -160,7 +160,7 @@ function addline!(
     push!(oldlines, line)
 end 
 
-function optimize(mp::MasterProblem, budget::Int)
+function optimize(mp::MasterProblem, budget::Float64)
     JuMP.fix(mp.budget, budget)
     JuMP.solve(mp.model)
     JuMP.getvalue(mp.x)
