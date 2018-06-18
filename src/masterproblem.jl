@@ -1,9 +1,12 @@
 mutable struct MasterProblem
+    # Network information
     np::TN.TransitNetworkProblem
     linelist::Vector{Vector{Int}}
     commutelines::Vector{Dict{Tuple{Int,Int},Any}}
     transferparam::Float64
     costs::Vector{Float64}
+    
+    # Optimization information
     model::JuMP.Model
     budget::JuMP.Variable
     x::Vector{JuMP.Variable}
