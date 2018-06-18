@@ -14,16 +14,20 @@ mutable struct MasterProblem
     pair1
     pair2
     solver
+    modeltype::Symbol
 end
 
 function MasterProblem(
     np::TN.TransitNetworkProblem;
     initialbudget::Float64 = 0.0,
     solver = Gurobi.GurobiSolver(OutputFlag = 0),
+    modeltype::Symbol = :LP,
     linelist::Vector{Vector{Int}} = uniquelines(np.lines),
     nlegs::Int = 1,
     transferparam::Float64 = 0.5 # -1 to 1.  lower allows sharper-angled transfers
     )
+
+    @assert in(modeltype, [:LP, :IP])
     
     const nlines = length(linelist)
     linelistcopy = Vector{Int}[]
@@ -47,12 +51,12 @@ function MasterProblem(
 
     rmp, budget, x, θ, choseline, bcon, choseub, pair1, pair2 = 
         mastermodel(np, linelistcopy, commutelines, costs, 
-                    solver)
+                    solver, modeltype)
     JuMP.fix(budget, initialbudget)
     
     MasterProblem(np, linelistcopy, commutelines, transferparam, costs,
         rmp, budget, x, θ, choseline, bcon, choseub, pair1, pair2,
-        solver)
+        solver, modeltype)
 end 
 
 function mastermodel(
@@ -60,12 +64,17 @@ function mastermodel(
     linelist::Vector{Vector{Int}},
     commutelines::Vector{Dict{Tuple{Int,Int},Any}},
     costs::Vector{Float64},
-    solver)
+    solver,
+    modeltype::Symbol)
 
     const nlines = length(linelist)
 
     rmp = JuMP.Model(solver=solver)
-    JuMP.@variable(rmp, x[l=1:nlines] >= 0)
+    if modeltype == :LP
+        JuMP.@variable(rmp, x[l=1:nlines] >= 0)
+    elseif modeltype == :IP
+        JuMP.@variable(rmp, x[l=1:nlines], Bin)
+    end
     if length(commutelines) == 2
         pairs = unique(vcat(values(commutelines[2])...))
         JuMP.@variable(rmp, aux[pairs] >= 0)
@@ -121,7 +130,7 @@ function addcolumn!(rmp::MasterProblem,
     rmp.bcon, rmp.choseub, rmp.pair1, rmp.pair2 = 
         mastermodel(rmp.np, 
             rmp.linelist, rmp.commutelines, rmp.costs, 
-            rmp.solver)
+            rmp.solver, rmp.modeltype)
     JuMP.fix(rmp.budget, initialbudget)
 end 
 
