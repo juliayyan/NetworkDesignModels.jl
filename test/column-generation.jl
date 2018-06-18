@@ -61,7 +61,7 @@ module ColumnGeneration
         @test length(rmp.linelist) == 23
         @test JuMP.getobjectivevalue(rmp.model) == 93587.42418280317
 
-        sp = NetworkDesignModels.SubProblem(np);
+        sp = NetworkDesignModels.SubProblem(rmp);
         p = getdual(rmp.choseline);
         q = getdual(rmp.bcon);
         s = getdual(rmp.choseub);

@@ -5,6 +5,7 @@ mutable struct MasterProblem
     commutelines::Vector{Dict{Tuple{Int,Int},Any}}
     transferparam::Float64
     costs::Vector{Float64}
+    gridtype::Symbol
     
     # Optimization information
     model::JuMP.Model
@@ -22,15 +23,17 @@ end
 
 function MasterProblem(
     np::TN.TransitNetworkProblem;
+    gridtype::Symbol = :latlong,
     initialbudget::Float64 = 0.0,
-    solver = Gurobi.GurobiSolver(OutputFlag = 0),
-    modeltype::Symbol = :lp,
     linelist::Vector{Vector{Int}} = uniquelines(np.lines),
     nlegs::Int = 1,
-    transferparam::Float64 = 0.5 # -1 to 1.  lower allows sharper-angled transfers
+    transferparam::Float64 = 0.5, # -1 to 1.  lower allows sharper-angled transfers
+    solver = Gurobi.GurobiSolver(OutputFlag = 0),
+    modeltype::Symbol = :lp
     )
 
     @assert in(modeltype, [:lp, :ip])
+    @assert in(gridtype, [:latlong, :euclidean])
     
     const nlines = length(linelist)
     linelistcopy = Vector{Int}[]
@@ -46,18 +49,19 @@ function MasterProblem(
     end 
     for l in 1:nlines 
         addline!(np, linelistcopy, commutelines, linelist[l],
-            transferparam)
+            transferparam,gridtype)
     end 
 
     # cost computation
-    costs = [linecost(np, line) for line in linelistcopy]
+    costs = [linecost(np, line, gridtype) for line in linelistcopy]
 
     rmp, budget, x, θ, choseline, bcon, choseub, pair1, pair2 = 
         mastermodel(np, linelistcopy, commutelines, costs, 
                     solver, modeltype)
     JuMP.fix(budget, initialbudget)
     
-    MasterProblem(np, linelistcopy, commutelines, transferparam, costs,
+    MasterProblem(
+        np, linelistcopy, commutelines, transferparam, costs, gridtype,
         rmp, budget, x, θ, choseline, bcon, choseub, pair1, pair2,
         solver, modeltype)
 end 
@@ -124,8 +128,9 @@ end
 function addcolumn!(rmp::MasterProblem,
     line::Vector{Int})
     # recompute line information
-    addline!(rmp.np, rmp.linelist, rmp.commutelines, line, rmp.transferparam)
-    push!(rmp.costs, linecost(rmp.np, line))
+    addline!(rmp.np, rmp.linelist, rmp.commutelines, line, 
+        rmp.transferparam, rmp.gridtype)
+    push!(rmp.costs, linecost(rmp.np, line,rmp.gridtype))
     initialbudget = JuMP.getvalue(rmp.budget)
 
     rmp.model, rmp.budget, 
@@ -143,7 +148,8 @@ function addline!(
     oldlines::Vector{Vector{Int}},
     commutelines::Vector{Dict{Tuple{Int,Int},Any}},
     line::Vector{Int},
-    transferparam::Float64)
+    transferparam::Float64,
+    gridtype::Symbol)
     l1 = length(oldlines)+1
     # single-leg commutes
     for u in line, v in line
@@ -161,7 +167,7 @@ function addline!(
             stns2 = setdiff(line2, xfrstns)
             for u in stns1, v in stns2
                 for w in xfrstns 
-                    if validtransfer(np,u,v,w,transferparam)
+                    if validtransfer(np,u,v,w,transferparam,gridtype)
                         pair = (min(l1,l2), max(l1,l2))
                         haskey(commutelines[2], (u,v)) && 
                             push!(commutelines[2][u,v], pair)

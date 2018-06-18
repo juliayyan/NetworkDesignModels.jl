@@ -16,18 +16,20 @@ mutable struct SubProblem
 end
 
 function SubProblem(
-    np::TN.TransitNetworkProblem;
+    rmp::MasterProblem;
     solver = Gurobi.GurobiSolver(OutputFlag = 0),
-    linelist::Vector{Vector{Int}} = uniquelines(np.lines),
     maxdist::Float64 = 0.5,
     direction::Vector{Float64} = [0.0,1.0],
     delta::Float64 = 1.0,
-    maxlength::Int = 30,
-    nlegs::Int = 1,
-    transferparam::Float64 = 0.5
+    maxlength::Int = 30
     )
     
+    const np = rmp.np
     const nstns = np.nstations
+    const nlegs = length(rmp.commutelines)
+    const transferparam = rmp.transferparam
+    const gridtype = rmp.gridtype
+    linelist = rmp.linelist
 
     # construct graph and ensure there are no cycles
     dists = Dict{Tuple{Int,Int},Float64}() 
@@ -35,8 +37,8 @@ function SubProblem(
     inneighbors  = [Int[] for u in 1:nstns]
     graph = LightGraphs.DiGraph(nstns)
     for u in 1:nstns, v in (u+1):nstns 
-        d = TN.haversinedistance(np,u,v)
-        b = dir(np,u,v)
+        d = edgecost(np, u, v, gridtype)
+        b = dir(np,u,v,gridtype)
         sim = dot(direction,b)/norm(direction)/norm(b)
         if (d < maxdist) && (1-abs(sim) < delta)
             if sim >= 0
@@ -64,7 +66,7 @@ function SubProblem(
             xfrstops_wv[u,v] = Int[]
             length(intersect(stnlines[u], stnlines[v])) > 0 && continue
             for w in 1:np.nstations 
-                if validtransfer(np,u,v,w,transferparam)
+                if validtransfer(np,u,v,w,transferparam,gridtype)
                     if length(intersect(stnlines[u], stnlines[w])) > 0
                         push!(xfrstops_uw[u,v], w)
                     end
