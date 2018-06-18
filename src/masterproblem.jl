@@ -21,13 +21,13 @@ function MasterProblem(
     np::TN.TransitNetworkProblem;
     initialbudget::Float64 = 0.0,
     solver = Gurobi.GurobiSolver(OutputFlag = 0),
-    modeltype::Symbol = :LP,
+    modeltype::Symbol = :lp,
     linelist::Vector{Vector{Int}} = uniquelines(np.lines),
     nlegs::Int = 1,
     transferparam::Float64 = 0.5 # -1 to 1.  lower allows sharper-angled transfers
     )
 
-    @assert in(modeltype, [:LP, :IP])
+    @assert in(modeltype, [:lp, :ip])
     
     const nlines = length(linelist)
     linelistcopy = Vector{Int}[]
@@ -70,9 +70,9 @@ function mastermodel(
     const nlines = length(linelist)
 
     rmp = JuMP.Model(solver=solver)
-    if modeltype == :LP
+    if modeltype == :lp
         JuMP.@variable(rmp, x[l=1:nlines] >= 0)
-    elseif modeltype == :IP
+    elseif modeltype == :ip
         JuMP.@variable(rmp, x[l=1:nlines], Bin)
     end
     if length(commutelines) == 2
