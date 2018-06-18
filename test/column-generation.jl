@@ -53,7 +53,7 @@ module ColumnGeneration
     end 
     
     @testset "Generating Columns" begin
-        budget = 100 # corresponds to about 1/3 of the key budget (296)
+        budget = 100.0 # corresponds to about 1/3 of the key budget (296)
         rmp = NetworkDesignModels.MasterProblem(
             np, 
             initialbudget = budget)
@@ -64,7 +64,8 @@ module ColumnGeneration
         sp = NetworkDesignModels.SubProblem(np);
         p = getdual(rmp.choseline);
         q = getdual(rmp.bcon);
-        path = NetworkDesignModels.generatecolumn(sp, p, q)
+        s = getdual(rmp.choseub);
+        path = NetworkDesignModels.generatecolumn(sp, p, q, s)
         @test path == [227, 166, 264, 342, 98, 99, 22, 
                        36, 19, 31, 24, 16, 253, 201, 159, 
                        349, 141, 385, 25, 46, 364, 317, 
@@ -82,14 +83,14 @@ module ColumnGeneration
         rmp = NetworkDesignModels.MasterProblem(np, 
             linelist = [np.lines[1]], 
             nlegs = 1);
-        NetworkDesignModels.optimize(rmp, 5)
+        NetworkDesignModels.optimize(rmp, 5.0)
         @test JuMP.getobjectivevalue(rmp.model) == 10764.0
 
         rmp = NetworkDesignModels.MasterProblem(np, 
             linelist = [np.lines[1][1:10],
                         np.lines[1][10:end]], 
             nlegs = 2);
-        NetworkDesignModels.optimize(rmp, ceil(Int, 5))
+        NetworkDesignModels.optimize(rmp, 5.0)
         @test JuMP.getobjectivevalue(rmp.model) == 10764.0
     end
 
