@@ -27,7 +27,6 @@ function SubProblem(
     
     const np = rmp.np
     const nstns = np.nstations
-    const nlegs = length(rmp.commutelines)
     const transferparam = rmp.transferparam
     const gridtype = rmp.gridtype
     linelist = rmp.linelist
