@@ -17,7 +17,7 @@ end
 
 function SubProblem(
     rmp::MasterProblem;
-    nlegs::Int = rmp.nlegs, # want this in case 2-legs hard to solve
+    nlegs::Int = length(rmp.commutelines), # want this in case 2-legs hard to solve
     solver = Gurobi.GurobiSolver(OutputFlag = 0),
     maxdist::Float64 = 0.5,
     direction::Vector{Float64} = [0.0,1.0],
