@@ -181,7 +181,7 @@ function generatecolumn(sp::SubProblem, p, q, s)
             i = path[count]
             oldcount = count
             for j in sp.outneighbors[i]
-                if round(JuMP.getvalue(sp.edg[i,j]) > 0)
+                if round(JuMP.getvalue(sp.edg[i,j])) > 0
                     push!(path, j)
                     count = count + 1
                     break
