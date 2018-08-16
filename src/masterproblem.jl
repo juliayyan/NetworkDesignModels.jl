@@ -84,7 +84,7 @@ function mastermodel(
     end
     if length(commutelines) == 2
         pairs = unique(vcat(values(commutelines[2])...))
-        JuMP.@variable(rmp, aux[pairs] >= 0)
+        JuMP.@variable(rmp, 0 <= aux[pairs] <= 1)
         JuMP.@constraint(rmp,
             pair1[p in pairs],
             aux[p] <= x[p[1]])
