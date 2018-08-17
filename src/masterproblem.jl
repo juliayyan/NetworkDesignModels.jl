@@ -1,3 +1,6 @@
+"""
+MasterProblem
+"""
 mutable struct MasterProblem
     # Network information
     np::TN.TransitNetworkProblem
@@ -21,6 +24,9 @@ mutable struct MasterProblem
     modeltype::Symbol
 end
 
+"""
+MasterProblem Constructor
+"""
 function MasterProblem(
     np::TN.TransitNetworkProblem;
     gridtype::Symbol = :latlong,
@@ -66,6 +72,7 @@ function MasterProblem(
         solver, modeltype)
 end 
 
+"build base master problem model"
 function mastermodel(
     np::TN.TransitNetworkProblem,
     linelist::Vector{Vector{Int}},
@@ -125,6 +132,8 @@ function mastermodel(
     rmp, budget, x, θ, choseline, bcon, choseub, pair1, pair2
 end 
 
+"adds a new column to the master problem, updating network
+ information and creating a new model"
 function addcolumn!(rmp::MasterProblem,
     line::Vector{Int})
     # recompute line information
@@ -142,7 +151,8 @@ function addcolumn!(rmp::MasterProblem,
     JuMP.fix(rmp.budget, initialbudget)
 end 
 
-# adds line to `oldlines` and `commutelines`
+"modifies `oldlines` and `commutelines` in-place, adding 
+ information about `line`"
 function addline!(
     np::TN.TransitNetworkProblem,
     oldlines::Vector{Vector{Int}},

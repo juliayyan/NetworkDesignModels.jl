@@ -1,3 +1,4 @@
+"base direct-route subproblem"
 function basemodel(
     np::TN.TransitNetworkProblem,
     inneighbors::Vector{Vector{Int}},
@@ -47,6 +48,7 @@ function basemodel(
 
 end
 
+"adds transferring variables and constraints to subproblem model `sp`"
 function transfermodel(
     np::TN.TransitNetworkProblem,
     sp, srv, ingraph, xfrstops_uw, xfrstops_wv)

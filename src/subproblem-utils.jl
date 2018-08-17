@@ -1,3 +1,4 @@
+"computes all potential transfer stations between commutes (u,v)"
 function computexfrstns(
     np::TN.TransitNetworkProblem,
     linelist::Vector{Vector{Int}},
@@ -25,6 +26,7 @@ function computexfrstns(
     return xfrstops_uw, xfrstops_wv
 end
 
+"finds path from source to sink using subproblem `sp`"
 function getpath(sp::SubProblem)
     if round(JuMP.getobjectivevalue(sp.model)) > 0
         np = sp.np
@@ -40,6 +42,8 @@ function getpath(sp::SubProblem)
     return Int[]
 end
 
+"helper function for wrapper getpath(), where `cur` can be 
+ any starting node (in case of subtours)"
 function getpath(cur::Int, 
     source_val::Int, sink_val::Int, 
     edge_val, 
@@ -68,4 +72,3 @@ function getpath(cur::Int,
     end
     pathnodes
 end
-

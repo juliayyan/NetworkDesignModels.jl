@@ -1,3 +1,6 @@
+"""
+SubProblem
+"""
 mutable struct SubProblem
     np::TN.TransitNetworkProblem
     model::JuMP.Model
@@ -15,6 +18,11 @@ mutable struct SubProblem
     nlegs
 end
 
+"""
+SubProblem Constructor
+* Constructs an acyclic graph that only has edges 
+* within some `delta`tolerance of `direction`
+"""
 function SubProblem(
     rmp::MasterProblem;
     nlegs::Int = length(rmp.commutelines), # want this in case 2-legs hard to solve
@@ -71,6 +79,7 @@ function SubProblem(
         nlegs)
 end 
 
+"uses dual values `p`,`q`,`s` to generate a profitable line"
 function generatecolumn(sp::SubProblem, p, q, s)
     JuMP.@objective(sp.model,
         Max,
