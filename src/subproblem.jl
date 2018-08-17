@@ -27,9 +27,7 @@ function SubProblem(
     
     const np = rmp.np
     const nstns = np.nstations
-    const transferparam = rmp.transferparam
     const gridtype = rmp.gridtype
-    linelist = rmp.linelist
 
     # construct graph and ensure there are no cycles
     dists = Dict{Tuple{Int,Int},Float64}() 
@@ -56,62 +54,13 @@ function SubProblem(
     end 
     @assert !LightGraphs.is_cyclic(graph)
 
-    # compute potential transfer stations
-    if nlegs == 2
-        stnlines = [find(in(u, line) for line in linelist) for u in 1:np.nstations]
-        xfrstops_uw = Dict{Tuple{Int,Int},Vector{Int}}()
-        xfrstops_wv = Dict{Tuple{Int,Int},Vector{Int}}()
-        for u in 1:np.nstations, v in nonzerodests(np,u)
-            xfrstops_uw[u,v] = Int[]
-            xfrstops_wv[u,v] = Int[]
-            length(intersect(stnlines[u], stnlines[v])) > 0 && continue
-            for w in 1:np.nstations 
-                if validtransfer(np,u,v,w,transferparam,gridtype)
-                    if length(intersect(stnlines[u], stnlines[w])) > 0
-                        push!(xfrstops_uw[u,v], w)
-                    end
-                    if length(intersect(stnlines[v], stnlines[w])) > 0
-                        push!(xfrstops_wv[u,v], w)
-                    end
-                end 
-            end
-        end
-    else
-        xfrstops_uw = xfrstops_wv = nothing
-    end
-
     sp, src, snk, edg, srv, ingraph = basemodel(np, inneighbors, outneighbors, maxlength, solver)
 
     if nlegs == 2
-        JuMP.@variable(sp, 0 <= srv_uw[u=1:nstns, v=nonzerodests(np,u)] <= 0.5)
-        JuMP.@variable(sp, 0 <= srv_wv[u=1:nstns, v=nonzerodests(np,u)] <= 0.5)
-        JuMP.@constraint(sp, 
-            [u=1:nstns, v=nonzerodests(np,u)],
-            srv[u,v] + srv_uw[u,v] + srv_wv[u,v] <= 1)
-        JuMP.@constraint(sp, 
-            [u=1:nstns, v=nonzerodests(np,u)],
-            srv[u,v] + srv_uw[u,v] + srv_wv[u,v] <= 1)
-        JuMP.@constraint(sp,
-            [u=1:nstns, v=nonzerodests(np,u)],
-            srv_uw[u,v] <= ingraph[v])
-        JuMP.@constraint(sp,
-            [u=1:nstns, v=nonzerodests(np,u)],
-            srv_wv[u,v] <= ingraph[u])
-        JuMP.@constraint(sp,
-            [u=1:nstns, v=nonzerodests(np,u)],
-            srv_uw[u,v] <= 
-            ((length(xfrstops_uw[u,v]) == 0) ?
-                0 : sum(ingraph[w] for w in xfrstops_uw[u,v])
-                )
-            )
-        JuMP.@constraint(sp,
-            [u=1:nstns, v=nonzerodests(np,u)],
-            srv_wv[u,v] <= 
-            ((length(xfrstops_wv[u,v]) == 0) ?
-                0 : sum(ingraph[w] for w in xfrstops_wv[u,v])
-                )
-            )
+        xfrstops_uw, xfrstops_wv = computexfrstns(np, rmp.linelist, rmp.transferparam, gridtype)
+        srv_uw, srv_wv = transfermodel(np, sp, srv, ingraph, xfrstops_uw, xfrstops_wv)
     else 
+        xfrstops_uw = xfrstops_wv = nothing
         srv_uw = srv_wv = nothing
     end
 
