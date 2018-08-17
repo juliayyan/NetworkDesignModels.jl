@@ -7,5 +7,5 @@ module NetworkDesignModels
     include("utils.jl")
     include("masterproblem.jl")
     include("subproblem.jl")
-
+    include("subproblem-utils.jl")
 end
