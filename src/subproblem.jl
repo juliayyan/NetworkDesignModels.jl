@@ -121,12 +121,25 @@ function SubProblemCP(
     function removecycles(cb)
         visited = falses(np.nstations) # whether a node has been visited
         visited[setdiff(1:np.nstations,find(JuMP.getvalue(ingraph)))] = true
-        source_val = findfirst(round.(JuMP.getvalue(src)))
-        sink_val = findfirst(round.(JuMP.getvalue(snk)))
-        edge_val = JuMP.getvalue(edg)
-        simplepath = getpath(source_val, source_val, sink_val, edge_val, visited, outneighbors) # bus line
+        source_val = sink_val = 0
+        for u in 1:np.nstations 
+            if round(JuMP.getvalue(src[u])) > 0.1
+                source_val = u 
+                break
+            end
+        end
+        for u in 1:np.nstations 
+            if round(JuMP.getvalue(snk[u])) > 0.1
+                sink_val = u
+                break
+            end
+        end
+        @assert source_val > 0
+        @assert sink_val > 0
+        @assert source_val != sink_val
+        simplepath = getpath(source_val, source_val, sink_val, edg, visited, outneighbors) # bus line
         while length(find(!visited)) > 0 # search for subtours
-            cyclenodes = getpath(findfirst(!visited), source_val, sink_val, edge_val, visited, outneighbors)
+            cyclenodes = getpath(findfirst(!visited), source_val, sink_val, edg, visited, outneighbors)
             if length(cyclenodes) > 1
                 expr = sum(sum(edg[u,v] for v in intersect(outneighbors[u], cyclenodes)) for u in cyclenodes)
                 JuMP.@lazyconstraint(cb, expr <= length(cyclenodes) - 1)
