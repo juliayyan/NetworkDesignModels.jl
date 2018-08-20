@@ -79,3 +79,66 @@ function SubProblem(
         nlegs)
 end 
 
+"""
+SubProblem Constructor
+* Constructs a graph (not necessarily acyclic) 
+* and solves by cutting planes
+"""
+function SubProblemCP(
+    rmp::MasterProblem;
+    nlegs::Int = 1,
+    solver = Gurobi.GurobiSolver(OutputFlag = 0),
+    maxdist::Float64 = 0.5,
+    maxlength::Int = 30
+    )
+
+    nlegs != 1 && warning("Only tested for nlegs = 1.")
+
+    const np = rmp.np
+    const nstns = np.nstations
+    const gridtype = rmp.gridtype
+
+    # construct graph and ensure there are no cycles
+    dists = Dict{Tuple{Int,Int},Float64}() 
+    outneighbors = [Int[] for u in 1:nstns]
+    inneighbors  = [Int[] for u in 1:nstns]
+    for u in 1:nstns
+        for v in (u+1):nstns 
+            d = NetworkDesignModels.edgecost(np, u, v, :latlong)
+            if (d < maxdist)
+                dists[u,v] = d 
+                push!(outneighbors[u], v)
+                push!(inneighbors[v], u)
+                dists[v,u] = d
+                push!(outneighbors[v], u)
+                push!(inneighbors[u], v)    
+            end 
+        end
+    end
+
+    sp, src, snk, edg, srv, ingraph = basemodel(np, inneighbors, outneighbors, maxlength, solver)
+
+    function removecycles(cb)
+        visited = falses(np.nstations) # whether a node has been visited
+        visited[setdiff(1:np.nstations,find(JuMP.getvalue(ingraph)))] = true
+        source_val = findfirst(round.(JuMP.getvalue(src)))
+        sink_val = findfirst(round.(JuMP.getvalue(snk)))
+        edge_val = JuMP.getvalue(edg)
+        simplepath = getpath(source_val, source_val, sink_val, edge_val, visited, outneighbors) # bus line
+        while length(find(!visited)) > 0 # search for subtours
+            cyclenodes = getpath(findfirst(!visited), source_val, sink_val, edge_val, visited, outneighbors)
+            if length(cyclenodes) > 1
+                expr = sum(sum(edg[u,v] for v in intersect(outneighbors[u], cyclenodes)) for u in cyclenodes)
+                JuMP.@lazyconstraint(cb, expr <= length(cyclenodes) - 1)
+            end
+        end
+    end
+    JuMP.addlazycallback(sp, removecycles)
+   
+    SubProblem(np, 
+        sp, src, snk, edg, srv, nothing, nothing,
+        nothing, nothing,
+        dists, outneighbors, inneighbors,
+        nlegs) 
+end
+
