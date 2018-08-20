@@ -89,7 +89,10 @@ function transfermodel(
     return srv_uw, srv_wv
 end
 
-"uses dual values `p`,`q`,`s` to generate a profitable line"
+"uses dual values `p`,`q`,`s` to generate a profitable line.
+ this function helps solve the subproblem many times
+ without rebuilding the model, just changing the objective.
+"
 function generatecolumn(sp::SubProblem, p, q, s)
     JuMP.@objective(sp.model,
         Max,
@@ -111,6 +114,66 @@ function generatecolumn(sp::SubProblem, p, q, s)
     end 
     path
 end 
+
+""
+function generatecolumn(rmp::MasterProblem; 
+    directions::Vector{Vector{Float64}} = [
+        [1.0,0.0],[1.0,0.5],
+        [1.0,1.0],[0.5,1.0],
+        [0.0,1.0],[-0.5,1.0],
+        [-1.0,1.0],[-1.0,-0.5]
+    ],
+    maxdist::Float64 = 0.5,
+    maxlength::Int = 30,
+    solver = Gurobi.GurobiSolver(OutputFlag = 0),
+    stepsize::Int = 1)
+
+    const np = rmp.np
+    const dists = [edgecost(np,u,v,rmp.gridtype) for u in 1:np.nstations, v in 1:np.nstations]
+    const neighbors = [setdiff(find(dists[u,:] .< maxdist),u) for u in 1:np.nstations]
+
+    p = JuMP.getdual(rmp.choseline)
+    q = JuMP.getdual(rmp.bcon)
+    s = JuMP.getdual(rmp.choseub)
+
+    # compute warm start
+    sp_warm = [SubProblem(rmp,
+                          maxdist = maxdist, 
+                          maxlength = maxlength,
+                          direction = d, 
+                          solver = Gurobi.GurobiSolver(OutputFlag = 0)) 
+                for d in directions]
+    soln_warm = [generatecolumn(spw,p,q,s) for spw in sp_warm]
+    sp_objs = [JuMP.getobjectivevalue(spw.model) for spw in sp_warm]
+    @show sp_objs
+    oldobj = 0
+    nodeset = soln_warm[findmax(sp_objs)[2]]
+
+    # iteratively generate path
+    path = nodeset
+    for i = 1:10
+        @show length(nodeset)
+        sp = SubProblemCP(rmp, 
+                          maxdist = maxdist, 
+                          maxlength = maxlength,
+                          nodeset = nodeset, 
+                          solver = solver)
+        warmstart(sp, path)
+        path = generatecolumn(sp,p,q,s)
+        if round(JuMP.getobjectivevalue(sp.model),3) == round(oldobj,3)
+            break
+        else
+            nodeset = union(nodeset, path)
+            for j in 2:stepsize 
+                nodeset = union(nodeset, neighbors[nodeset]...)
+                @show length(nodeset)
+            end
+            oldobj = JuMP.getobjectivevalue(sp.model)
+        end
+    end
+
+    path
+end
 
 function warmstart(sp::SubProblem, path::Vector{Int})
     JuMP.setvalue(sp.src[path[1]]  , 1)

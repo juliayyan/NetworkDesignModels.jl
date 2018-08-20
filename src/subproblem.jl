@@ -86,6 +86,7 @@ SubProblem Constructor
 """
 function SubProblemCP(
     rmp::MasterProblem;
+    nodeset::Vector{Int} = Vector(1:rmp.np.nstations),
     nlegs::Int = 1,
     solver = Gurobi.GurobiSolver(OutputFlag = 0),
     maxdist::Float64 = 0.5,
@@ -104,6 +105,7 @@ function SubProblemCP(
     inneighbors  = [Int[] for u in 1:nstns]
     for u in 1:nstns
         for v in (u+1):nstns 
+            !in(u, nodeset) && !in(v, nodeset) && continue
             d = NetworkDesignModels.edgecost(np, u, v, :latlong)
             if (d < maxdist)
                 dists[u,v] = d 
@@ -154,4 +156,3 @@ function SubProblemCP(
         dists, outneighbors, inneighbors,
         nlegs) 
 end
-
