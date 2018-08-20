@@ -59,7 +59,7 @@ module ColumnGeneration
             initialbudget = budget)
         NetworkDesignModels.optimize(rmp, budget)
         @test length(rmp.linelist) == 23
-        @test JuMP.getobjectivevalue(rmp.model) == 93587.42418280317
+        @test isapprox(JuMP.getobjectivevalue(rmp.model),93587.42418280317)
 
         sp = NetworkDesignModels.SubProblem(rmp);
         p = getdual(rmp.choseline);
@@ -70,12 +70,12 @@ module ColumnGeneration
                        36, 19, 31, 24, 16, 253, 201, 159, 
                        349, 141, 385, 25, 46, 364, 317, 
                        139, 359, 363, 371, 160, 377, 305, 331]
-        @test JuMP.getobjectivevalue(sp.model) == 2316.560035938597
+        @test isapprox(JuMP.getobjectivevalue(sp.model), 2316.560035938597)
         @test sum(getvalue(sp.edg)) == length(path)-1
 
         NetworkDesignModels.addcolumn!(rmp, path)
         NetworkDesignModels.optimize(rmp, budget)
-        @test JuMP.getobjectivevalue(rmp.model) == 95674.68627657647
+        @test isapprox(JuMP.getobjectivevalue(rmp.model), 95674.68627657647)
         @test length(rmp.linelist) == 24
     end 
 
