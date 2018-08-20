@@ -31,6 +31,7 @@ function basemodel(
         sum(src) == 1)
     JuMP.@constraint(sp,
         sum(snk) == 1)
+    JuMP.@constraint(sp, [u=1:nstns], src[u] + snk[u] <= 1)
     JuMP.@constraint(sp, sum(edg) <= maxlength)
 
     # demand service
