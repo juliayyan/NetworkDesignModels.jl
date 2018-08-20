@@ -111,3 +111,11 @@ function generatecolumn(sp::SubProblem, p, q, s)
     end 
     path
 end 
+
+function warmstart(sp::SubProblem, path::Vector{Int})
+    JuMP.setvalue(sp.src[path[1]]  , 1)
+    JuMP.setvalue(sp.snk[path[end]], 1)
+    for i in 2:length(path)
+        JuMP.setvalue(sp.edg[path[i-1],path[i]], 1)
+    end
+end
