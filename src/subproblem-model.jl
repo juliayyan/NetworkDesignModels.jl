@@ -87,3 +87,26 @@ function transfermodel(
     
     return srv_uw, srv_wv
 end
+
+"uses dual values `p`,`q`,`s` to generate a profitable line"
+function generatecolumn(sp::SubProblem, p, q, s)
+    JuMP.@objective(sp.model,
+        Max,
+        sum(sum(min(p[u,v],sp.np.odmatrix[u,v] - s[u,v])*
+            (sp.srv[u,v] + 
+                (sp.nlegs == 1 ? 0 : 
+                 sp.srv_uw[u,v] + sp.srv_wv[u,v])) 
+            for v in nonzerodests(sp.np,u)
+                )
+        for u in 1:sp.np.nstations) - 
+        q*sum(sp.dists[u,v]*sp.edg[u,v] 
+            for u in 1:sp.np.nstations, 
+                v in sp.outneighbors[u])
+    )  
+    JuMP.solve(sp.model)
+    path = getpath(sp) 
+    if (length(path) > 0) && (round(sum(JuMP.getvalue(sp.edg))) != length(path)-1)
+        error("Dual solution is not a valid path")
+    end 
+    path
+end 
