@@ -1,3 +1,11 @@
+"Stores intermediate solutions"
+type NodeData
+    time::Float64  # in seconds since the epoch
+    node::Int
+    obj::Float64
+    bestbound::Float64
+end
+
 "base direct-route subproblem"
 function basemodel(
     np::TN.TransitNetworkProblem,
@@ -93,7 +101,9 @@ end
  this function helps solve the subproblem many times
  without rebuilding the model, just changing the objective.
 "
-function generatecolumn(sp::SubProblem, p, q, s)
+function generatecolumn(sp::SubProblem, 
+    p, q, s;
+    tracking::Symbol = :none)
     JuMP.@objective(sp.model,
         Max,
         sum(sum(min(p[u,v],sp.np.odmatrix[u,v] - s[u,v])*
@@ -107,12 +117,37 @@ function generatecolumn(sp::SubProblem, p, q, s)
             for u in 1:sp.np.nstations, 
                 v in sp.outneighbors[u])
     )  
+
+    t0 = time()
+
+    if tracking == :Intermediate  
+        bbdata = NodeData[]
+        sp.auxinfo[:bounds] = bbdata
+        function boundscallback(cb)
+            node      = MathProgBase.cbgetexplorednodes(cb)
+            obj       = MathProgBase.cbgetobj(cb)
+            bestbound = MathProgBase.cbgetbestbound(cb)
+            push!(bbdata, NodeData(time()-t0,node,obj,bestbound))
+        end
+        JuMP.addinfocallback(sp.model, boundscallback, when = :Intermediate)
+    elseif tracking == :MIPSol
+        bbdata = Float64[]
+        sp.auxinfo[:solntimes] = bbdata
+        function solncallback(cb)
+            push!(bbdata, time()-t0)
+        end
+        JuMP.addinfocallback(sp.model, solncallback, when = :MIPSol)
+    end
+
     JuMP.solve(sp.model)
+    sp.auxinfo[:endtime] = time() - t0
+
     path = getpath(sp) 
     if (length(path) > 0) && (round(sum(JuMP.getvalue(sp.edg))) != length(path)-1)
         error("Dual solution is not a valid path")
     end 
-    path
+
+    return path
 end 
 
 ""

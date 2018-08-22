@@ -16,6 +16,7 @@ mutable struct SubProblem
     outneighbors::Vector{Vector{Int}}
     inneighbors::Vector{Vector{Int}}
     nlegs
+    auxinfo::Dict{Symbol,Any}
 end
 
 """
@@ -76,7 +77,7 @@ function SubProblem(
         sp, src, snk, edg, srv, srv_uw, srv_wv,
         xfrstops_uw, xfrstops_wv,
         dists, outneighbors, inneighbors,
-        nlegs)
+        nlegs, Dict{Symbol,Any}())
 end 
 
 """
@@ -119,6 +120,8 @@ function SubProblemCP(
     end
 
     sp, src, snk, edg, srv, ingraph = basemodel(np, inneighbors, outneighbors, maxlength, solver)
+    auxinfo = Dict{Symbol,Any}()
+    auxinfo[:nlazy] = 0
 
     function removecycles(cb)
         visited = falses(np.nstations) # whether a node has been visited
@@ -145,6 +148,7 @@ function SubProblemCP(
             if length(cyclenodes) > 1
                 expr = sum(sum(edg[u,v] for v in intersect(outneighbors[u], cyclenodes)) for u in cyclenodes)
                 JuMP.@lazyconstraint(cb, expr <= length(cyclenodes) - 1)
+                auxinfo[:nlazy] = auxinfo[:nlazy] + 1
             end
         end
     end
@@ -154,5 +158,5 @@ function SubProblemCP(
         sp, src, snk, edg, srv, nothing, nothing,
         nothing, nothing,
         dists, outneighbors, inneighbors,
-        nlegs) 
+        nlegs, auxinfo) 
 end

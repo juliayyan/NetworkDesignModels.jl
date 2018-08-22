@@ -1,6 +1,6 @@
 module NetworkDesignModels
 
-    import JuMP, Gurobi, TransitNetworks, LightGraphs
+    import JuMP, Gurobi, TransitNetworks, LightGraphs, MathProgBase
     const TN = TransitNetworks
 
     include("coveragemodel.jl")
