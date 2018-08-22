@@ -143,8 +143,8 @@ function SubProblemCP(
         @assert sink_val > 0
         @assert source_val != sink_val
         simplepath = getpath(source_val, source_val, sink_val, edg, visited, outneighbors) # bus line
-        while length(find(!visited)) > 0 # search for subtours
-            cyclenodes = getpath(findfirst(!visited), source_val, sink_val, edg, visited, outneighbors)
+        while length(find(.!visited)) > 0 # search for subtours
+            cyclenodes = getpath(findfirst(.!visited), source_val, sink_val, edg, visited, outneighbors)
             if length(cyclenodes) > 1
                 expr = sum(sum(edg[u,v] for v in intersect(outneighbors[u], cyclenodes)) for u in cyclenodes)
                 JuMP.@lazyconstraint(cb, expr <= length(cyclenodes) - 1)
