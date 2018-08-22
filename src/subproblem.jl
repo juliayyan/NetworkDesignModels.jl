@@ -106,7 +106,7 @@ function SubProblemCP(
     for u in 1:nstns
         for v in (u+1):nstns 
             !in(u, nodeset) && !in(v, nodeset) && continue
-            d = NetworkDesignModels.edgecost(np, u, v, :latlong)
+            d = edgecost(np, u, v, gridtype)
             if (d < maxdist)
                 dists[u,v] = d 
                 push!(outneighbors[u], v)
