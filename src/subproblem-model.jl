@@ -1,11 +1,3 @@
-"Stores intermediate solutions"
-type NodeData
-    time::Float64  # in seconds since the epoch
-    node::Int
-    obj::Float64
-    bestbound::Float64
-end
-
 "base direct-route subproblem"
 function basemodel(
     np::TN.TransitNetworkProblem,
@@ -121,20 +113,22 @@ function generatecolumn(sp::SubProblem,
     t0 = time()
 
     if tracking == :Intermediate  
-        bbdata = NodeData[]
-        sp.auxinfo[:bounds] = bbdata
+        sp.auxinfo[:obj]       = Float64[]
+        sp.auxinfo[:bestbound] = Float64[]
+        sp.auxinfo[:time]      = Float64[]
         function boundscallback(cb)
-            node      = MathProgBase.cbgetexplorednodes(cb)
-            obj       = MathProgBase.cbgetobj(cb)
-            bestbound = MathProgBase.cbgetbestbound(cb)
-            push!(bbdata, NodeData(time()-t0,node,obj,bestbound))
+            currobj = MathProgBase.cbgetobj(cb)
+            if (length(sp.auxinfo[:obj]) == 0) || (currobj > sp.auxinfo[:obj][end])
+                push!(sp.auxinfo[:obj],       MathProgBase.cbgetobj(cb))
+                push!(sp.auxinfo[:bestbound], MathProgBase.cbgetbestbound(cb))
+                push!(sp.auxinfo[:time],      time() - t0)                
+            end
         end
         JuMP.addinfocallback(sp.model, boundscallback, when = :Intermediate)
     elseif tracking == :MIPSol
-        bbdata = Float64[]
-        sp.auxinfo[:solntimes] = bbdata
+        sp.auxinfo[:time] = Float64[]
         function solncallback(cb)
-            push!(bbdata, time()-t0)
+            push!(sp.auxinfo[:time], time() - t0)
         end
         JuMP.addinfocallback(sp.model, solncallback, when = :MIPSol)
     end
@@ -162,6 +156,10 @@ function generatecolumn(rmp::MasterProblem;
     maxlength::Int = 30,
     solver = Gurobi.GurobiSolver(OutputFlag = 0),
     stepsize::Int = 1)
+
+    auxinfo = Dict{Symbol,Any}()
+    auxinfo[:nlazy] = 0
+    t0 = time()
 
     const np = rmp.np
     const dists = [edgecost(np,u,v,rmp.gridtype) for u in 1:np.nstations, v in 1:np.nstations]
