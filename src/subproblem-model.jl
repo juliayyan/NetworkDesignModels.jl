@@ -144,7 +144,8 @@ function generatecolumn(sp::SubProblem,
     return path
 end 
 
-""
+"Heuristically generates columns by starting with edge-restricted
+ networks and iteratively building up relevant sections of network"
 function generatecolumn(rmp::MasterProblem; 
     directions::Vector{Vector{Float64}} = [
         [1.0,0.0],[1.0,0.5],
@@ -155,9 +156,14 @@ function generatecolumn(rmp::MasterProblem;
     maxdist::Float64 = 0.5,
     maxlength::Int = 30,
     solver = Gurobi.GurobiSolver(OutputFlag = 0),
-    stepsize::Int = 1)
+    stepsize::Int = 1,
+    maxiterations::Int = 10,
+    tracking::Symbol = :none
+    )
 
     auxinfo = Dict{Symbol,Any}()
+    auxinfo[:time]  = Float64[]
+    auxinfo[:obj]   = Float64[]
     auxinfo[:nlazy] = 0
     t0 = time()
 
@@ -178,14 +184,14 @@ function generatecolumn(rmp::MasterProblem;
                 for d in directions]
     soln_warm = [generatecolumn(spw,p,q,s) for spw in sp_warm]
     sp_objs = [JuMP.getobjectivevalue(spw.model) for spw in sp_warm]
-    @show sp_objs
+    push!(auxinfo[:time], time() - t0)
+    push!(auxinfo[:obj], maximum(sp_objs))
     oldobj = 0
     nodeset = soln_warm[findmax(sp_objs)[2]]
 
     # iteratively generate path
     path = nodeset
-    for i = 1:10
-        @show length(nodeset)
+    for i = 1:maxiterations
         sp = SubProblemCP(rmp, 
                           maxdist = maxdist, 
                           maxlength = maxlength,
@@ -196,16 +202,19 @@ function generatecolumn(rmp::MasterProblem;
         if round(JuMP.getobjectivevalue(sp.model),3) == round(oldobj,3)
             break
         else
+            auxinfo[:nlazy] += sp.auxinfo[:nlazy]
+            push!(auxinfo[:time], time() - t0)
+            push!(auxinfo[:obj],  JuMP.getobjectivevalue(sp.model))
             nodeset = union(nodeset, path)
             for j in 2:stepsize 
                 nodeset = union(nodeset, neighbors[nodeset]...)
-                @show length(nodeset)
             end
             oldobj = JuMP.getobjectivevalue(sp.model)
         end
     end
 
-    path
+    auxinfo[:endtime] = time() - t0
+    return path, auxinfo 
 end
 
 function warmstart(sp::SubProblem, path::Vector{Int})
