@@ -162,9 +162,10 @@ function generatecolumn(rmp::MasterProblem;
     )
 
     auxinfo = Dict{Symbol,Any}()
-    auxinfo[:time]  = Float64[]
-    auxinfo[:obj]   = Float64[]
-    auxinfo[:nlazy] = 0
+    auxinfo[:time]   = Float64[]
+    auxinfo[:obj]    = Float64[]
+    auxinfo[:nnodes] = Int[]
+    auxinfo[:nlazy]  = 0
     t0 = time()
 
     const np = rmp.np
@@ -188,6 +189,7 @@ function generatecolumn(rmp::MasterProblem;
     push!(auxinfo[:obj], maximum(sp_objs))
     oldobj = 0
     nodeset = soln_warm[findmax(sp_objs)[2]]
+    push!(auxinfo[:nnodes], length(nodeset))
 
     # iteratively generate path
     path = nodeset
@@ -209,6 +211,7 @@ function generatecolumn(rmp::MasterProblem;
             for j in 2:stepsize 
                 nodeset = union(nodeset, neighbors[nodeset]...)
             end
+            push!(auxinfo[:nnodes], length(nodeset))
             oldobj = JuMP.getobjectivevalue(sp.model)
         end
     end
