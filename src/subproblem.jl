@@ -94,8 +94,6 @@ function SubProblemCP(
     maxlength::Int = 30
     )
 
-    nlegs != 1 && warning("Only tested for nlegs = 1.")
-
     const np = rmp.np
     const nstns = np.nstations
     const gridtype = rmp.gridtype
@@ -120,6 +118,15 @@ function SubProblemCP(
     end
 
     sp, src, snk, edg, srv, ingraph = basemodel(np, inneighbors, outneighbors, maxlength, solver)
+    if nlegs == 2
+        xfrstops_uw, xfrstops_wv = computexfrstns(np, rmp.linelist, rmp.transferparam, gridtype)
+        srv_uw, srv_wv = transfermodel(np, sp, srv, ingraph, xfrstops_uw, xfrstops_wv)
+    else 
+        xfrstops_uw = xfrstops_wv = nothing
+        srv_uw = srv_wv = nothing
+    end
+
+
     auxinfo = Dict{Symbol,Any}()
     auxinfo[:nlazy] = 0
 
@@ -155,8 +162,8 @@ function SubProblemCP(
     JuMP.addlazycallback(sp, removecycles)
    
     SubProblem(np, 
-        sp, src, snk, edg, srv, nothing, nothing,
-        nothing, nothing,
+        sp, src, snk, edg, srv, srv_uw, srv_wv,
+        xfrstops_uw, xfrstops_wv,
         dists, outneighbors, inneighbors,
         nlegs, auxinfo) 
 end

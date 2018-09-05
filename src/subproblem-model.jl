@@ -160,6 +160,8 @@ function generatecolumn(rmp::MasterProblem;
     maxiterations::Int = 10,
     tracking::Symbol = :none
     )
+    
+    warn("Only implemented for nlegs = 1")
 
     auxinfo = Dict{Symbol,Any}()
     auxinfo[:time]   = Float64[]
