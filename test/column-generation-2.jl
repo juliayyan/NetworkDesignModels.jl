@@ -21,10 +21,10 @@ module ColumnGeneration2
         @test np.nstations == 16
         @test length(np.lines) == 8
         @test sum(np.odmatrix) == 24000
-    end 
-rmp = nothing
-primal_objs = nothing
-dual_objs = nothing
+        end 
+    rmp = nothing
+    primal_objs = nothing
+    dual_objs = nothing
     @testset "Generating Columns" begin
         budget = sum(NetworkDesignModels.linecost(np,line,gridtype) for line in np.lines)
         rmp = NetworkDesignModels.MasterProblem(
@@ -63,16 +63,9 @@ dual_objs = nothing
                 NetworkDesignModels.addcolumn!(rmp, path)
             end
         end
-        primal_vals = [200.0, 7600.0, 15200.0, 20317.3, 20606.9, 
-                       21142.0, 22445.1, 22445.1, 22706.7, 23239.6, 
-                       23563.6, 23902.2, 23902.2, 23902.2, 23902.2, 
-                       23902.2, 23902.2, 23909.6, 24000.0, 24000.0]
-        dual_vals = [7300.0, 5600.0, 4900.0, 3118.26, 1136.21, 
-                     1076.77, 573.208, 552.95, 494.655, 427.498, 
-                     155.546, 119.092, 26.3887, 131.487, 32.6297, 
-                     150.499, 214.456]
-        @test isapprox(primal_vals, primal_objs, atol = 0.1)                     
-        @test isapprox(dual_vals, dual_objs, atol = 0.1)
+        @test isapprox(primal_objs[2], 7600.0)                     
+        @test isapprox(dual_objs[1], 7300.0)
+        @test isapprox(primal_objs[end], sum(np.odmatrix))
 
     end 
 
