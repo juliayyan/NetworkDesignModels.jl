@@ -171,7 +171,7 @@ function generatecolumn(rmp::MasterProblem;
                           direction = d, 
                           solver = Gurobi.GurobiSolver(OutputFlag = 0)) 
                 for d in directions]
-    soln_warm = [generatecolumn(spw,p,q,s) for spw in sp_warm]
+    soln_warm = [generatecolumn(spw,p,q) for spw in sp_warm]
     sp_objs = [JuMP.getobjectivevalue(spw.model) for spw in sp_warm]
     push!(auxinfo[:time], time() - t0)
     push!(auxinfo[:obj], maximum(sp_objs))
@@ -188,7 +188,7 @@ function generatecolumn(rmp::MasterProblem;
                           nodeset = nodeset, 
                           solver = solver)
         warmstart(sp, path)
-        path = generatecolumn(sp,p,q,s)
+        path = generatecolumn(sp,p,q)
         if round(JuMP.getobjectivevalue(sp.model),3) == round(oldobj,3)
             break
         else
