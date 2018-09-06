@@ -84,7 +84,7 @@ function generatecolumn(sp::SubProblem,
     tracking::Symbol = :none)
     JuMP.@objective(sp.model,
         Max,
-        sum(sum(min(p[u,v],sp.np.odmatrix[u,v] - s[u,v])*
+        sum(sum(p[u,v]*
             (sp.srv[u,v] + 
                 (sp.nlegs == 1 ? 0 : 
                  0.5*sp.srv2[u,v])) 
