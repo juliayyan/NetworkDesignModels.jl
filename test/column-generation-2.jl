@@ -63,7 +63,7 @@ module ColumnGeneration2
                 NetworkDesignModels.addcolumn!(rmp, path)
             end
         end
-        @test isapprox(primal_objs[2], 7200.0)                     
+        @test isapprox(primal_objs[2], 7600.0)                     
         @test isapprox(dual_objs[1], 7300.0)
         @test isapprox(primal_objs[end], sum(np.odmatrix))
 

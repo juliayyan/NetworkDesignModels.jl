@@ -56,23 +56,37 @@ function transfermodel(
 
     const nstns = np.nstations
 
-    JuMP.@variable(sp, 0 <= srv2[u=1:nstns, v=nonzerodests(np,u)] <= 1)
+    JuMP.@variable(sp, 0 <= srv_uw[u=1:nstns, v=nonzerodests(np,u)] <= 1)
+    JuMP.@variable(sp, 0 <= srv_wv[u=1:nstns, v=nonzerodests(np,u)] <= 1)
  
     JuMP.@constraint(sp, 
         [u=1:nstns, v=nonzerodests(np,u)],
-        srv[u,v] + srv2[u,v] <= 1)
+        srv[u,v] + srv_uw[u,v] + srv_wv[u,v] <= 1)
+    JuMP.@constraint(sp, 
+        [u=1:nstns, v=nonzerodests(np,u)],
+        srv[u,v] + srv_uw[u,v] + srv_wv[u,v] <= 1)
     JuMP.@constraint(sp,
         [u=1:nstns, v=nonzerodests(np,u)],
-        srv2[u,v] <= ingraph[u] + ingraph[v])
+        srv_uw[u,v] <= ingraph[v])
     JuMP.@constraint(sp,
         [u=1:nstns, v=nonzerodests(np,u)],
-        srv2[u,v] <= 
+        srv_wv[u,v] <= ingraph[u])
+    JuMP.@constraint(sp,
+        [u=1:nstns, v=nonzerodests(np,u)],
+        srv_uw[u,v] <= 
         ((length(xfrstops_uw[u,v]) == 0) ?
-            0 : sum(ingraph[w] for w in union(xfrstops_uw[u,v],xfrstops_wv[u,v]))
+            0 : sum(ingraph[w] for w in xfrstops_uw[u,v])
+            )
+        )
+    JuMP.@constraint(sp,
+        [u=1:nstns, v=nonzerodests(np,u)],
+        srv_wv[u,v] <= 
+        ((length(xfrstops_wv[u,v]) == 0) ?
+            0 : sum(ingraph[w] for w in xfrstops_wv[u,v])
             )
         )
     
-    return srv2
+    return srv_uw, srv_wv
 end
 
 "uses dual values `p`,`q`,`s` to generate a profitable line.
@@ -88,10 +102,11 @@ function generatecolumn(sp::SubProblem,
         Max,
         sum(sum(p[u,v]*
             (sp.srv[u,v] + 
-                (sp.nlegs == 1 ? 0 : 
-                 coeffs[u,v]*sp.srv2[u,v])) 
-            for v in nonzerodests(sp.np,u)
+                (sp.nlegs == 1 ? 0 :  
+                 coeffs[u,v]*(sp.srv_uw[u,v] + sp.srv_wv[u,v]))
                 )
+            for v in nonzerodests(sp.np,u)
+            )
         for u in 1:sp.np.nstations) - 
         q*sum(sp.dists[u,v]*sp.edg[u,v] 
             for u in 1:sp.np.nstations, 
