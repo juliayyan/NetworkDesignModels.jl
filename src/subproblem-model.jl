@@ -81,13 +81,15 @@ end
 "
 function generatecolumn(sp::SubProblem, 
     p, q;
-    tracking::Symbol = :none)
+    tracking::Symbol = :none,
+    coeffs::Dict{Tuple{Int,Int},Float64} = Dict(k => 0.5 for k in keys(p))
+    )
     JuMP.@objective(sp.model,
         Max,
         sum(sum(p[u,v]*
             (sp.srv[u,v] + 
                 (sp.nlegs == 1 ? 0 : 
-                 0.5*sp.srv2[u,v])) 
+                 coeffs[u,v]*sp.srv2[u,v])) 
             for v in nonzerodests(sp.np,u)
                 )
         for u in 1:sp.np.nstations) - 
