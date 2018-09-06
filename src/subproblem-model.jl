@@ -87,7 +87,7 @@ function generatecolumn(sp::SubProblem,
         sum(sum(min(p[u,v],sp.np.odmatrix[u,v] - s[u,v])*
             (sp.srv[u,v] + 
                 (sp.nlegs == 1 ? 0 : 
-                 sp.srv2[u,v])) 
+                 0.5*sp.srv2[u,v])) 
             for v in nonzerodests(sp.np,u)
                 )
         for u in 1:sp.np.nstations) - 
