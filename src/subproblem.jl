@@ -8,8 +8,7 @@ mutable struct SubProblem
     snk::Vector{JuMP.Variable}
     edg::JuMP.JuMPDict{JuMP.Variable}
     srv::JuMP.JuMPDict{JuMP.Variable}
-    srv_uw
-    srv_wv
+    srv2
     xfrstops_uw
     xfrstops_wv
     dists::Dict{Tuple{Int,Int},Float64}
@@ -67,14 +66,14 @@ function SubProblem(
 
     if nlegs == 2
         xfrstops_uw, xfrstops_wv = computexfrstns(np, rmp.linelist, rmp.transferparam, gridtype)
-        srv_uw, srv_wv = transfermodel(np, sp, srv, ingraph, xfrstops_uw, xfrstops_wv)
+        srv2 = transfermodel(np, sp, srv, ingraph, xfrstops_uw, xfrstops_wv)
     else 
         xfrstops_uw = xfrstops_wv = nothing
-        srv_uw = srv_wv = nothing
+        srv2 = nothing
     end
 
     SubProblem(np, 
-        sp, src, snk, edg, srv, srv_uw, srv_wv,
+        sp, src, snk, edg, srv, srv2,
         xfrstops_uw, xfrstops_wv,
         dists, outneighbors, inneighbors,
         nlegs, Dict{Symbol,Any}())
@@ -120,10 +119,10 @@ function SubProblemCP(
     sp, src, snk, edg, srv, ingraph = basemodel(np, inneighbors, outneighbors, maxlength, solver)
     if nlegs == 2
         xfrstops_uw, xfrstops_wv = computexfrstns(np, rmp.linelist, rmp.transferparam, gridtype)
-        srv_uw, srv_wv = transfermodel(np, sp, srv, ingraph, xfrstops_uw, xfrstops_wv)
+        srv2 = transfermodel(np, sp, srv, ingraph, xfrstops_uw, xfrstops_wv)
     else 
         xfrstops_uw = xfrstops_wv = nothing
-        srv_uw = srv_wv = nothing
+        srv2 = nothing
     end
 
 
@@ -162,7 +161,7 @@ function SubProblemCP(
     JuMP.addlazycallback(sp, removecycles)
    
     SubProblem(np, 
-        sp, src, snk, edg, srv, srv_uw, srv_wv,
+        sp, src, snk, edg, srv, srv2,
         xfrstops_uw, xfrstops_wv,
         dists, outneighbors, inneighbors,
         nlegs, auxinfo) 

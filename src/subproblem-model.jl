@@ -56,37 +56,23 @@ function transfermodel(
 
     const nstns = np.nstations
 
-    JuMP.@variable(sp, 0 <= srv_uw[u=1:nstns, v=nonzerodests(np,u)] <= 0.5)
-    JuMP.@variable(sp, 0 <= srv_wv[u=1:nstns, v=nonzerodests(np,u)] <= 0.5)
+    JuMP.@variable(sp, 0 <= srv2[u=1:nstns, v=nonzerodests(np,u)] <= 1)
  
     JuMP.@constraint(sp, 
         [u=1:nstns, v=nonzerodests(np,u)],
-        srv[u,v] + srv_uw[u,v] + srv_wv[u,v] <= 1)
-    JuMP.@constraint(sp, 
-        [u=1:nstns, v=nonzerodests(np,u)],
-        srv[u,v] + srv_uw[u,v] + srv_wv[u,v] <= 1)
+        srv[u,v] + srv2[u,v] <= 1)
     JuMP.@constraint(sp,
         [u=1:nstns, v=nonzerodests(np,u)],
-        srv_uw[u,v] <= ingraph[v])
+        srv2[u,v] <= ingraph[u] + ingraph[v])
     JuMP.@constraint(sp,
         [u=1:nstns, v=nonzerodests(np,u)],
-        srv_wv[u,v] <= ingraph[u])
-    JuMP.@constraint(sp,
-        [u=1:nstns, v=nonzerodests(np,u)],
-        srv_uw[u,v] <= 
+        srv2[u,v] <= 
         ((length(xfrstops_uw[u,v]) == 0) ?
-            0 : sum(ingraph[w] for w in xfrstops_uw[u,v])
-            )
-        )
-    JuMP.@constraint(sp,
-        [u=1:nstns, v=nonzerodests(np,u)],
-        srv_wv[u,v] <= 
-        ((length(xfrstops_wv[u,v]) == 0) ?
-            0 : sum(ingraph[w] for w in xfrstops_wv[u,v])
+            0 : sum(ingraph[w] for w in union(xfrstops_uw[u,v],xfrstops_wv[u,v]))
             )
         )
     
-    return srv_uw, srv_wv
+    return srv2
 end
 
 "uses dual values `p`,`q`,`s` to generate a profitable line.
@@ -101,7 +87,7 @@ function generatecolumn(sp::SubProblem,
         sum(sum(min(p[u,v],sp.np.odmatrix[u,v] - s[u,v])*
             (sp.srv[u,v] + 
                 (sp.nlegs == 1 ? 0 : 
-                 sp.srv_uw[u,v] + sp.srv_wv[u,v])) 
+                 sp.srv2[u,v])) 
             for v in nonzerodests(sp.np,u)
                 )
         for u in 1:sp.np.nstations) - 
