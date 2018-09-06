@@ -65,7 +65,7 @@ module ColumnGeneration
         p = getdual(rmp.choseline);
         q = getdual(rmp.bcon);
         s = getdual(rmp.choseub);
-        path = NetworkDesignModels.generatecolumn(sp, p, q, s)
+        path = NetworkDesignModels.generatecolumn(sp, p, q)
         @test path == [227, 166, 264, 342, 98, 99, 22, 
                        36, 19, 31, 24, 16, 253, 201, 159, 
                        349, 141, 385, 25, 46, 364, 317, 

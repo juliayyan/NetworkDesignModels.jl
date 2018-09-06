@@ -80,7 +80,7 @@ end
  without rebuilding the model, just changing the objective.
 "
 function generatecolumn(sp::SubProblem, 
-    p, q, s;
+    p, q;
     tracking::Symbol = :none)
     JuMP.@objective(sp.model,
         Max,
@@ -94,7 +94,7 @@ function generatecolumn(sp::SubProblem,
         q*sum(sp.dists[u,v]*sp.edg[u,v] 
             for u in 1:sp.np.nstations, 
                 v in sp.outneighbors[u])
-    )  
+    )
 
     t0 = time()
 

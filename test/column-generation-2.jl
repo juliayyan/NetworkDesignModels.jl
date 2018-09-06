@@ -54,7 +54,7 @@ module ColumnGeneration2
                 p = getdual(rmp.choseline);
                 q = getdual(rmp.bcon);
                 s = getdual(rmp.choseub)
-                path = NetworkDesignModels.generatecolumn(sp, p, q, s)
+                path = NetworkDesignModels.generatecolumn(sp, p, q)
                 if length(path) == 0
                     break
                 end
