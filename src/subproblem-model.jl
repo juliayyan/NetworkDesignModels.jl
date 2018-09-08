@@ -89,6 +89,44 @@ function transfermodel(
     return srv_uw, srv_wv
 end
 
+function spcoeffs(rmp::MasterProblem, sp::SubProblem)
+    np = rmp.np
+    stnlines = [find(in(u,line) for line in rmp.linelist) for u in 1:np.nstations]
+    xval = JuMP.getvalue(rmp.x)
+    coeffs_uw = Dict{Tuple{Int,Int},Float64}()
+    coeffs_wv = Dict{Tuple{Int,Int},Float64}()
+    for u in 1:np.nstations, v in nonzerodests(np,u)
+        ulines = stnlines[u]
+        vlines = stnlines[v]
+        # all lines containing some w and either u or v
+        wlines_uw = unique(vcat(union(stnlines[sp.xfrstops_uw[u,v]]...)...))
+        wlines_wv = unique(vcat(union(stnlines[sp.xfrstops_wv[u,v]]...)...))
+        wlines_uw = intersect(wlines_uw, ulines)
+        wlines_wv = intersect(wlines_wv, vlines)
+        if length(wlines_uw) == 0
+            if length(sp.xfrstops_uw[u,v]) > 0 
+                error("should have some intersection ", u, " ", v)
+            end
+            coeffs_uw[u,v] = 0.0
+        elseif round(sum(xval[wlines_uw]),5) == 0
+            coeffs_uw[u,v] = 0.5
+        else 
+            coeffs_uw[u,v] = 1.0
+        end
+        if length(wlines_wv) == 0
+            if length(sp.xfrstops_wv[u,v]) > 0
+                error("should have some intersection ", u, " ", v)
+            end
+            coeffs_wv[u,v] = 0.0
+        elseif round(sum(xval[wlines_wv]),5) == 0
+            coeffs_wv[u,v] = 0.5
+        else 
+            coeffs_wv[u,v] = 1.0
+        end
+    end
+    coeffs_uw, coeffs_wv
+end
+
 "uses dual values `p`,`q`,`s` to generate a profitable line.
  this function helps solve the subproblem many times
  without rebuilding the model, just changing the objective.
@@ -96,14 +134,16 @@ end
 function generatecolumn(sp::SubProblem, 
     p, q;
     tracking::Symbol = :none,
-    coeffs::Dict{Tuple{Int,Int},Float64} = Dict(k => 0.5 for k in keys(p))
+    coeffs::Tuple{Dict{Tuple{Int,Int},Float64},Dict{Tuple{Int,Int},Float64}} = 
+        (Dict(k => 0.5 for k in keys(p)),Dict(k => 0.5 for k in keys(p)))
     )
     JuMP.@objective(sp.model,
         Max,
         sum(sum(p[u,v]*
             (sp.srv[u,v] + 
                 (sp.nlegs == 1 ? 0 :  
-                 coeffs[u,v]*(sp.srv_uw[u,v] + sp.srv_wv[u,v]))
+                 (coeffs[1][u,v]*sp.srv_uw[u,v] + 
+                  coeffs[2][u,v]*sp.srv_wv[u,v]))
                 )
             for v in nonzerodests(sp.np,u)
             )
