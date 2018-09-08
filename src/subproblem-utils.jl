@@ -1,10 +1,11 @@
 "computes all potential transfer stations between commutes (u,v)"
 function computexfrstns(
-    np::TN.TransitNetworkProblem,
-    linelist::Vector{Vector{Int}},
-    transferparam::Float64,
+    rmp::MasterProblem,
     gridtype::Symbol
-)
+    )
+    linelist = rmp.linelist[find(round.(JuMP.getvalue(rmp.x),5))]
+    np = rmp.np
+    transferparam = rmp.transferparam
     stnlines = [find(in(u, line) for line in linelist) for u in 1:np.nstations]
     xfrstops_uw = Dict{Tuple{Int,Int},Vector{Int}}()
     xfrstops_wv = Dict{Tuple{Int,Int},Vector{Int}}()
