@@ -190,6 +190,8 @@ end
 "Heuristically generates columns by starting with edge-restricted
  networks and iteratively building up relevant sections of network"
 function generatecolumn(rmp::MasterProblem; 
+    coeffs::Tuple{Dict{Tuple{Int,Int},Float64},Dict{Tuple{Int,Int},Float64}} = 
+        (Dict(k => 0.5 for k in keys(p)),Dict(k => 0.5 for k in keys(p))),
     directions::Vector{Vector{Float64}} = [
         [1.0,0.0],[1.0,0.5],
         [1.0,1.0],[0.5,1.0],
@@ -228,7 +230,7 @@ function generatecolumn(rmp::MasterProblem;
                           direction = d, 
                           solver = Gurobi.GurobiSolver(OutputFlag = 0)) 
                 for d in directions]
-    soln_warm = [generatecolumn(spw,p,q) for spw in sp_warm]
+    soln_warm = [generatecolumn(spw,p,q,coeffs=coeffs) for spw in sp_warm]
     sp_objs = [JuMP.getobjectivevalue(spw.model) for spw in sp_warm]
     push!(auxinfo[:time], time() - t0)
     push!(auxinfo[:obj], maximum(sp_objs))
@@ -246,7 +248,7 @@ function generatecolumn(rmp::MasterProblem;
                           nodeset = nodeset, 
                           solver = solver)
         warmstart(sp, path)
-        path = generatecolumn(sp,p,q)
+        path = generatecolumn(sp,p,q,coeffs=coeffs)
         if round(JuMP.getobjectivevalue(sp.model),3) == round(oldobj,3)
             break
         else
