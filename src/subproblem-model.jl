@@ -196,6 +196,7 @@ function generatecolumn(rmp::MasterProblem;
         [0.0,1.0],[-0.5,1.0],
         [-1.0,1.0],[-1.0,-0.5]
     ],
+    nlegs::Int = length(rmp.commutelines),
     maxdist::Float64 = 0.5,
     maxlength::Int = 30,
     solver = Gurobi.GurobiSolver(OutputFlag = 0),
@@ -204,8 +205,6 @@ function generatecolumn(rmp::MasterProblem;
     tracking::Symbol = :none
     )
     
-    warn("Only implemented for nlegs = 1")
-
     auxinfo = Dict{Symbol,Any}()
     auxinfo[:time]   = Float64[]
     auxinfo[:obj]    = Float64[]
@@ -223,6 +222,7 @@ function generatecolumn(rmp::MasterProblem;
 
     # compute warm start
     sp_warm = [SubProblem(rmp,
+                          nlegs = nlegs,
                           maxdist = maxdist, 
                           maxlength = maxlength,
                           direction = d, 
@@ -233,13 +233,14 @@ function generatecolumn(rmp::MasterProblem;
     push!(auxinfo[:time], time() - t0)
     push!(auxinfo[:obj], maximum(sp_objs))
     oldobj = 0
-    nodeset = soln_warm[findmax(sp_objs)[2]]
+    nodeset = soln_warm[findmax(sp_objs)[2]] # should I change this to all nodes
     push!(auxinfo[:nnodes], length(nodeset))
 
     # iteratively generate path
     path = nodeset
     for i = 1:maxiterations
         sp = SubProblemCP(rmp, 
+                          nlegs = nlegs,
                           maxdist = maxdist, 
                           maxlength = maxlength,
                           nodeset = nodeset, 
