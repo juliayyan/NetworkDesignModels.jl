@@ -88,7 +88,7 @@ SubProblem Constructor
 function SubProblemCP(
     rmp::MasterProblem;
     nodeset::Vector{Int} = Vector(1:rmp.np.nstations),
-    nlegs::Int = 1,
+    nlegs::Int = length(rmp.commutelines),
     solver = Gurobi.GurobiSolver(OutputFlag = 0),
     maxdist::Float64 = 0.5,
     maxlength::Int = 30
