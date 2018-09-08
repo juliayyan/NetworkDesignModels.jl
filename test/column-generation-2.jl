@@ -42,14 +42,14 @@ module ColumnGeneration2
         dual_objs = Float64[]
         for direction in [[1.0,0.0],[1.0,1.0],[0.0,1.0],[-1.0,1.0]]
             for i in 1:10
-                sp = NetworkDesignModels.SubProblem(rmp,
-                    direction = direction, 
-                    delta = 0.8);
-
                 # solve master
                 NetworkDesignModels.optimize(rmp, budget)
                 push!(primal_objs, getobjectivevalue(rmp.model))
                 
+                sp = NetworkDesignModels.SubProblem(rmp,
+                    direction = direction, 
+                    delta = 0.8);
+
                 # generate new column
                 p = getdual(rmp.choseline);
                 q = getdual(rmp.bcon);
