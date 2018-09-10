@@ -235,11 +235,11 @@ function generatecolumn(rmp::MasterProblem;
     push!(auxinfo[:time], time() - t0)
     push!(auxinfo[:obj], maximum(sp_objs))
     oldobj = 0
-    nodeset = soln_warm[findmax(sp_objs)[2]] # should I change this to all nodes
+    nodeset = unique(union(soln_warm...))
     push!(auxinfo[:nnodes], length(nodeset))
 
     # iteratively generate path
-    path = nodeset
+    path = soln_warm[findmax(sp_objs)[2]]
     for i = 1:maxiterations
         sp = SubProblemCP(rmp, 
                           nlegs = nlegs,
