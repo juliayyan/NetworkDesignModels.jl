@@ -33,7 +33,7 @@ function MasterProblem(
     initialbudget::Float64 = 0.0,
     linelist::Vector{Vector{Int}} = uniquelines(np.lines),
     nlegs::Int = 1,
-    transferparam::Float64 = 0.5, # -1 to 1.  lower allows sharper-angled transfers
+    transferparam::Float64 = 0.0, # -1 to 1.  lower allows sharper-angled transfers
     solver = Gurobi.GurobiSolver(OutputFlag = 0),
     modeltype::Symbol = :lp
     )
