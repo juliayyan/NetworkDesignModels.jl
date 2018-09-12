@@ -23,6 +23,12 @@ linecost(np::TN.TransitNetworkProblem,
     sum(edgecost(np, line[i], line[i+1], gridtype)
         for i in 1:length(line)-1)
 
+"""
+Returns distance between stations `u` and `v` based on the `gridtype`.
+
+If `gridtype` is `:latlong`, it returns the distance in miles. If gridtype is
+`:euclidean`, it returns the euclidean distance in latlng space.
+"""
 function edgecost(np::TN.TransitNetworkProblem, 
     u::Int, v::Int, 
     gridtype::Symbol)
