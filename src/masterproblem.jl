@@ -58,8 +58,9 @@ function MasterProblem(
 
     commutelines = allcommutelines(np, nlegs, linelist, transferparam, gridtype)
     costs = [linecost(np, line, gridtype) for line in linelist]
-    rmp, budget, x, θ, choseline, bcon, choseub, pair1, pair2 = 
-        mastermodel(np, linelist, commutelines, costs, solver, modeltype)
+    rmp, budget, x, θ, choseline, bcon, choseub, pair1, pair2 = mastermodel(
+        np, linelist, commutelines, costs, solver, modeltype
+    )
     
     MasterProblem(
         np, linelist, commutelines, transferparam, costs, gridtype, rmp, budget,
@@ -129,8 +130,10 @@ function addcolumn!(
         line::Vector{Int}
     )
     # recompute line information
-    addline!(rmp.np, rmp.linelist, rmp.commutelines, line, 
-        rmp.transferparam, rmp.gridtype)
+    addline!(
+        rmp.np, rmp.linelist, rmp.commutelines, line, rmp.transferparam,
+        rmp.gridtype
+    )
     push!(rmp.costs, linecost(rmp.np, line,rmp.gridtype))
     initialbudget = JuMP.getvalue(rmp.budget)
 
