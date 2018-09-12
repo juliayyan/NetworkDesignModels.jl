@@ -54,9 +54,7 @@ module ColumnGeneration
     
     @testset "Generating Columns" begin
         budget = 100.0 # corresponds to about 1/3 of the key budget (296)
-        rmp = NetworkDesignModels.MasterProblem(
-            np, 
-            initialbudget = budget)
+        rmp = NetworkDesignModels.MasterProblem(np)
         NetworkDesignModels.optimize(rmp, budget)
         @test length(rmp.linelist) == 23
         @test isapprox(JuMP.getobjectivevalue(rmp.model),93587.42418280317)

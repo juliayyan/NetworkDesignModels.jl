@@ -30,7 +30,6 @@ module ColumnGeneration2
         rmp = NetworkDesignModels.MasterProblem(
             np, 
             linelist = [[1,6]],
-            initialbudget = budget,
             nlegs = 2,
             transferparam = -0.25,
             gridtype = gridtype
