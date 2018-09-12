@@ -58,7 +58,6 @@ function MasterProblem(
 
     commutelines = allcommutelines(np, nlegs, linelist, transferparam, gridtype)
 
-    # cost computation
     costs = [linecost(np, line, gridtype) for line in linelist]
 
     rmp, budget, x, θ, choseline, bcon, choseub, pair1, pair2 = 
