@@ -5,7 +5,9 @@ module ColumnGeneration2
     using Base.Test
 
     # read network
-    pathfiles = ["data/tidy/toy/0-stationpaths/stationpath$(k).csv" for k in 1:8]
+    pathfiles = [
+        "data/tidy/toy/0-stationpaths/stationpath$(k).csv" for k in 1:8
+    ]
     segfiles = ["data/tidy/toy/0-stationpaths/segment$(k).csv" for k in 1:8]
     stns, paths = TransitNetworks.readstationpaths(pathfiles)
     segs, seglist = TransitNetworks.readsegmentpaths(segfiles)
@@ -26,7 +28,8 @@ module ColumnGeneration2
     primal_objs = nothing
     dual_objs = nothing
     @testset "Generating Columns" begin
-        budget = sum(NetworkDesignModels.linecost(np,line,gridtype) for line in np.lines)
+        budget = sum(NetworkDesignModels.linecost(np,line,gridtype)
+                     for line in np.lines)
         rmp = NetworkDesignModels.MasterProblem(
             np, 
             linelist = [[1,6]],

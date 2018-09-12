@@ -19,8 +19,11 @@ module ColumnGeneration
 
     # read stopclusters
     stopclusters = DataFrames.readtable("data/tidy/1-stopclusters.csv");
-    stopclusters = Dict(zip(stopclusters[:stop_id], stopclusters[:cluster_stop]))
-    for u in setdiff(unique(vcat(demand[:origin], demand[:destination])), collect(keys(stopclusters)))
+    stopclusters = Dict(zip(
+        stopclusters[:stop_id], stopclusters[:cluster_stop]
+    ))
+    for u in setdiff(unique(vcat(demand[:origin], demand[:destination])),
+                     collect(keys(stopclusters)))
         stopclusters[u] = u
     end 
             
@@ -34,7 +37,8 @@ module ColumnGeneration
     # cluster stops of odmatrix
     demand[:origin]      = [stopclusters[u] for u in demand[:origin]]
     demand[:destination] = [stopclusters[u] for u in demand[:destination]]
-    demand = by(demand, [:origin, :destination, :hour], d -> DataFrame(demand = sum(d[:demand])))
+    demand = by(demand, [:origin, :destination, :hour],
+                d -> DataFrame(demand = sum(d[:demand])))
     demand = demand[demand[:origin] .!= demand[:destination],:]
     @testset "Clustering Stations" begin
         @test sum(demand[:demand]) == 364124

@@ -186,10 +186,12 @@ function generatecolumn(
             sp.auxinfo[:time]      = Float64[]
             function boundscallback(cb)
                 currobj = MathProgBase.cbgetobj(cb)
-                if (length(sp.auxinfo[:obj]) == 0) || (currobj > sp.auxinfo[:obj][end])
-                    push!(sp.auxinfo[:obj],       MathProgBase.cbgetobj(cb))
-                    push!(sp.auxinfo[:bestbound], MathProgBase.cbgetbestbound(cb))
-                    push!(sp.auxinfo[:time],      time() - t0)                
+                if ((length(sp.auxinfo[:obj]) == 0) ||
+                    (currobj > sp.auxinfo[:obj][end]))
+                    push!(sp.auxinfo[:obj], MathProgBase.cbgetobj(cb))
+                    push!(sp.auxinfo[:bestbound],
+                          MathProgBase.cbgetbestbound(cb))
+                    push!(sp.auxinfo[:time], time() - t0)
                 end
             end
             JuMP.addinfocallback(sp.model, boundscallback, when = :Intermediate)
@@ -206,7 +208,8 @@ function generatecolumn(
     sp.auxinfo[:endtime] = time() - t0
 
     path = getpath(sp) 
-    if (length(path) > 0) && (round(sum(JuMP.getvalue(sp.edg))) != length(path)-1)
+    if ((length(path) > 0) &&
+        (round(sum(JuMP.getvalue(sp.edg))) != length(path) - 1))
         error("Dual solution is not a valid path")
     end 
 
@@ -267,7 +270,9 @@ function generatecolumn(
     t0 = time()
 
     const nstns = rmp.np.nstations
-    const dists = [edgecost(rmp.np,u,v,rmp.gridtype) for u in 1:nstns, v in 1:nstns]
+    const dists = [
+        edgecost(rmp.np,u,v,rmp.gridtype) for u in 1:nstns, v in 1:nstns
+    ]
     const neighbors = [setdiff(find(dists[u,:] .< maxdist),u) for u in 1:nstns]
 
     p = JuMP.getdual(rmp.choseline)

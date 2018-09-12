@@ -47,7 +47,7 @@ function MasterProblem(
         gridtype::Symbol = :latlong,
         linelist::Vector{Vector{Int}} = uniquelines(np.lines),
         nlegs::Int = 1,
-        transferparam::Float64 = 0.0, # -1 to 1. lower allows sharper-angled transfers
+        transferparam::Float64 = 0.0, # -1 to 1. lower values for sharper-angled transfers
         solver = Gurobi.GurobiSolver(OutputFlag = 0),
         modeltype::Symbol = :lp
     )
@@ -64,9 +64,9 @@ function MasterProblem(
                     solver, modeltype)
     
     MasterProblem(
-        np, linelist, commutelines, transferparam, costs, gridtype,
-        rmp, budget, x, θ, choseline, bcon, choseub, pair1, pair2,
-        solver, modeltype)
+        np, linelist, commutelines, transferparam, costs, gridtype, rmp, budget,
+        x, θ, choseline, bcon, choseub, pair1, pair2, solver, modeltype
+    )
 end
 
 "build base master problem model"
