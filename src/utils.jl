@@ -13,7 +13,7 @@ function uniquelines(linelist::Vector{Vector{Int}})
                 break
             end
         end
-        isunique && push!(uniquelines, line)
+        isunique && push!(uniquelines, copy(line))
     end
     uniquelines
 end
