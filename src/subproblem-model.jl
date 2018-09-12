@@ -217,7 +217,10 @@ relevant sections of the network.
     `rmp::MasterProblem`.
 * `delta`: tolerance within `direction` for edges in the graph to obey.
 * `maxlength`: the maximum number of edges in a path
-* `stepsize`:
+* `stepsize`: the number of neighbor-lookaheads. `stepsize = 1` means that at
+    each iteration, we build up the graph by looking at the current nodeset +
+    their neighbors. `stepsize = 2` means that we look at the current nodeset +
+    neighbors + neighbors' neighbors, etc.
 * `solver`: The solver being used to solve the problem.
 * `maxiterations`: The maximum number of iterations to build up relevant
         sections of the network for.
