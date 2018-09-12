@@ -1,6 +1,3 @@
-"""
-MasterProblem
-"""
 mutable struct MasterProblem
     # Network information
     np::TN.TransitNetworkProblem
@@ -25,38 +22,44 @@ mutable struct MasterProblem
 end
 
 """
-MasterProblem Constructor
+Returns a MasterProblem object.
+
+Contains information on both the transit network and the optimization model.
+
+### Quick Example
+```
+np = load("data/processed/networks/9b-transitnetwork.jld2", "keynetwork")
+rmp = NetworkDesignModels.MasterProblem(np, nlegs = 1)
+NetworkDesignModels.optimize(rmp, 5.0) # solves the problem with a budget of 5
+```
 """
 function MasterProblem(
-    np::TN.TransitNetworkProblem;
-    gridtype::Symbol = :latlong,
-    initialbudget::Float64 = 0.0,
-    linelist::Vector{Vector{Int}} = uniquelines(np.lines),
-    nlegs::Int = 1,
-    transferparam::Float64 = 0.0, # -1 to 1.  lower allows sharper-angled transfers
-    solver = Gurobi.GurobiSolver(OutputFlag = 0),
-    modeltype::Symbol = :lp
+        np::TN.TransitNetworkProblem;
+        gridtype::Symbol = :latlong,
+        initialbudget::Float64 = 0.0,
+        linelist::Vector{Vector{Int}} = uniquelines(np.lines),
+        nlegs::Int = 1,
+        transferparam::Float64 = 0.0, # -1 to 1. lower allows sharper-angled transfers
+        solver = Gurobi.GurobiSolver(OutputFlag = 0),
+        modeltype::Symbol = :lp
     )
-
     @assert in(modeltype, [:lp, :ip])
     @assert in(gridtype, [:latlong, :euclidean])
-    
-    const nlines = length(linelist)
-    linelistcopy = Vector{Int}[]
-
-    # (u,v) --> lines that connect u and v
     @assert nlegs <= 2
+    
     commutelines = [Dict{Tuple{Int,Int},Any}() for i in 1:nlegs]
     for u in 1:np.nstations, v in nonzerodests(np,u)
+        # (u,v) --> lines that connect u and v
         commutelines[1][u,v] = Int[]
         if nlegs == 2 
             commutelines[2][u,v] = Tuple{Int,Int}[]
         end
-    end 
-    for l in 1:nlines 
-        addline!(np, linelistcopy, commutelines, linelist[l],
-            transferparam,gridtype)
-    end 
+    end
+
+    linelistcopy = Vector{Int}[]
+    for line in linelist
+        addline!(np, linelistcopy, commutelines, line, transferparam,gridtype)
+    end
 
     # cost computation
     costs = [linecost(np, line, gridtype) for line in linelistcopy]
@@ -74,12 +77,13 @@ end
 
 "build base master problem model"
 function mastermodel(
-    np::TN.TransitNetworkProblem,
-    linelist::Vector{Vector{Int}},
-    commutelines::Vector{Dict{Tuple{Int,Int},Any}},
-    costs::Vector{Float64},
-    solver,
-    modeltype::Symbol)
+        np::TN.TransitNetworkProblem,
+        linelist::Vector{Vector{Int}},
+        commutelines::Vector{Dict{Tuple{Int,Int},Any}},
+        costs::Vector{Float64},
+        solver,
+        modeltype::Symbol
+    )
 
     const nlines = length(linelist)
 
@@ -134,8 +138,10 @@ end
 
 "adds a new column to the master problem, updating network
  information and creating a new model"
-function addcolumn!(rmp::MasterProblem,
-    line::Vector{Int})
+function addcolumn!(
+        rmp::MasterProblem,
+        line::Vector{Int}
+    )
     # recompute line information
     addline!(rmp.np, rmp.linelist, rmp.commutelines, line, 
         rmp.transferparam, rmp.gridtype)
@@ -154,12 +160,13 @@ end
 "modifies `oldlines` and `commutelines` in-place, adding 
  information about `line`"
 function addline!(
-    np::TN.TransitNetworkProblem,
-    oldlines::Vector{Vector{Int}},
-    commutelines::Vector{Dict{Tuple{Int,Int},Any}},
-    line::Vector{Int},
-    transferparam::Float64,
-    gridtype::Symbol)
+        np::TN.TransitNetworkProblem,
+        oldlines::Vector{Vector{Int}},
+        commutelines::Vector{Dict{Tuple{Int,Int},Any}},
+        line::Vector{Int},
+        transferparam::Float64,
+        gridtype::Symbol
+    )
     l1 = length(oldlines)+1
     # single-leg commutes
     for u in line, v in line
