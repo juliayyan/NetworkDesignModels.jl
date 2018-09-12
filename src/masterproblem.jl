@@ -57,9 +57,7 @@ function MasterProblem(
     @assert abs(transferparam) <= 1.0
 
     commutelines = allcommutelines(np, nlegs, linelist, transferparam, gridtype)
-
     costs = [linecost(np, line, gridtype) for line in linelist]
-
     rmp, budget, x, θ, choseline, bcon, choseub, pair1, pair2 = 
         mastermodel(np, linelist, commutelines, costs, solver, modeltype)
     
@@ -137,8 +135,7 @@ function addcolumn!(
     initialbudget = JuMP.getvalue(rmp.budget)
 
     rmp.model, rmp.budget, rmp.x, rmp.θ, rmp.choseline, rmp.bcon, rmp.choseub,
-    rmp.pair1, rmp.pair2 = 
-        mastermodel(
+        rmp.pair1, rmp.pair2 = mastermodel(
             rmp.np, rmp.linelist, rmp.commutelines, rmp.costs, rmp.solver,
             rmp.modeltype
         )
@@ -167,9 +164,8 @@ function allcommutelines(
     commutelines = [Dict{Tuple{Int,Int},Any}() for i in 1:nlegs]
     # 1. Initialize each (u,v) entry as an empty vector.
     for u in 1:np.nstations, v in nonzerodests(np,u)
-        # (u,v) --> lines that connect u and v
         commutelines[1][u,v] = Int[]
-        if nlegs == 2 
+        if nlegs == 2
             commutelines[2][u,v] = Tuple{Int,Int}[]
         end
     end
