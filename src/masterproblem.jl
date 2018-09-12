@@ -76,18 +76,19 @@ function MasterProblem(
     # 2. We populate the (u,v) entries in commutelines.
     linelistcopy = Vector{Int}[]
     for line in linelist
-        addline!(np, linelistcopy, commutelines, line, transferparam,gridtype)
+        addline!(np, linelistcopy, commutelines, line, transferparam, gridtype)
     end
+    @assert linelistcopy == linelist
 
     # cost computation
-    costs = [linecost(np, line, gridtype) for line in linelistcopy]
+    costs = [linecost(np, line, gridtype) for line in linelist]
 
     rmp, budget, x, θ, choseline, bcon, choseub, pair1, pair2 = 
-        mastermodel(np, linelistcopy, commutelines, costs, 
+        mastermodel(np, linelist, commutelines, costs, 
                     solver, modeltype)
     
     MasterProblem(
-        np, linelistcopy, commutelines, transferparam, costs, gridtype,
+        np, linelist, commutelines, transferparam, costs, gridtype,
         rmp, budget, x, θ, choseline, bcon, choseub, pair1, pair2,
         solver, modeltype)
 end 
@@ -193,24 +194,22 @@ function addline!(
     # single-leg commutes
     for u in line, v in line
         u == v && continue
-        !in(v, nonzerodests(np,u)) && continue
+        !in(v, nonzerodests(np, u)) && continue
         push!(commutelines[1][u,v], l1)
     end 
     # two-leg commutes
     if length(commutelines) == 2
         for l2 in 1:length(oldlines)
             line2 = oldlines[l2]
-            xfrstns = intersect(line,line2)
+            xfrstns = intersect(line, line2)
             length(xfrstns) == 0 && continue
-            stns1 = setdiff(line , xfrstns)
-            stns2 = setdiff(line2, xfrstns)
-            for u in stns1, v in stns2
+            for u in setdiff(line, xfrstns), v in setdiff(line2, xfrstns)
                 for w in xfrstns 
-                    if validtransfer(np,u,v,w,transferparam,gridtype)
-                        pair = (min(l1,l2), max(l1,l2))
-                        haskey(commutelines[2], (u,v)) && 
+                    if validtransfer(np, u, v, w, transferparam, gridtype)
+                        pair = (min(l1, l2), max(l1, l2))
+                        haskey(commutelines[2], (u, v)) && 
                             push!(commutelines[2][u,v], pair)
-                        haskey(commutelines[2], (v,u)) && 
+                        haskey(commutelines[2], (v, u)) && 
                             push!(commutelines[2][v,u], pair)
                         break
                     end
