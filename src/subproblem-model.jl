@@ -13,45 +13,37 @@ function basemodel(
     )
     const nstns = np.nstations
     
-    # build model
     sp = JuMP.Model(solver=solver)
 
-    JuMP.@variable(sp, src[u=1:nstns], Bin)
-    JuMP.@variable(sp, snk[u=1:nstns], Bin)
-    JuMP.@variable(sp, edg[u=1:nstns, v=outneighbors[u]], Bin)
-    JuMP.@variable(sp, 0 <= srv[u=1:nstns, v=nonzerodests(np,u)] <= 1)
+    JuMP.@variables sp begin
+        src[u=1:nstns], Bin
+        snk[u=1:nstns], Bin
+        edg[u=1:nstns, v=outneighbors[u]], Bin
+        0 <= srv[u=1:nstns, v=nonzerodests(np,u)] <= 1
+    end
     
     # path constraints
-    JuMP.@constraint(sp,
-        [u=1:nstns],
-        src[u] + sum(edg[v,u] for v in inneighbors[u]) <= 1)
-    JuMP.@constraint(sp,
-        [u=1:nstns],
-        snk[u] + sum(edg[u,v] for v in outneighbors[u]) <= 1)
-    JuMP.@constraint(sp,
-        [u=1:nstns],
-        src[u] + sum(edg[v,u] for v in inneighbors[u]) ==
-        snk[u] + sum(edg[u,v] for v in outneighbors[u]))
-    JuMP.@constraint(sp,
-        sum(src) == 1)
-    JuMP.@constraint(sp,
-        sum(snk) == 1)
-    JuMP.@constraint(sp, [u=1:nstns], src[u] + snk[u] <= 1)
-    JuMP.@constraint(sp, sum(edg) <= maxlength)
+    JuMP.@constraints sp begin
+        sum(edg) <= maxlength
+        sum(src) == 1
+        sum(snk) == 1
+        [u=1:nstns], src[u] + sum(edg[v,u] for v in inneighbors[u]) <= 1
+        [u=1:nstns], snk[u] + sum(edg[u,v] for v in outneighbors[u]) <= 1
+        [u=1:nstns], src[u] + sum(edg[v,u] for v in inneighbors[u]) ==
+                     snk[u] + sum(edg[u,v] for v in outneighbors[u])
+        [u=1:nstns], src[u] + snk[u] <= 1
+    end
 
     # demand service
     JuMP.@expression(sp,
         ingraph[u=1:nstns],
         src[u] + sum(edg[u2,u] for u2 in inneighbors[u]) + snk[u])
-    JuMP.@constraint(sp,
-        [u=1:nstns, v=nonzerodests(np,u)],
-        srv[u,v] <= ingraph[u])
-    JuMP.@constraint(sp,
-        [u=1:nstns, v=nonzerodests(np,u)],
-        srv[u,v] <= ingraph[v])
+    JuMP.@constraints sp begin
+        [u=1:nstns, v=nonzerodests(np,u)], srv[u,v] <= ingraph[u]
+        [u=1:nstns, v=nonzerodests(np,u)], srv[u,v] <= ingraph[v]
+    end
 
-    return sp, src, snk, edg, srv, ingraph
-
+    sp, src, snk, edg, srv, ingraph
 end
 
 """
@@ -72,30 +64,22 @@ function transfermodel(
     JuMP.@variable(sp, 0 <= srv_uw[u=1:nstns, v=nonzerodests(np,u)] <= 1)
     JuMP.@variable(sp, 0 <= srv_wv[u=1:nstns, v=nonzerodests(np,u)] <= 1)
  
-    JuMP.@constraint(sp, 
+    JuMP.@constraints sp begin
+        [u=1:nstns, v=nonzerodests(np,u)], srv_uw[u,v] <= ingraph[v]
+        [u=1:nstns, v=nonzerodests(np,u)], srv_wv[u,v] <= ingraph[u]
         [u=1:nstns, v=nonzerodests(np,u)],
-        srv[u,v] + srv_uw[u,v] + srv_wv[u,v] <= 1)
-    JuMP.@constraint(sp, 
+            srv[u,v] + srv_uw[u,v] + srv_wv[u,v] <= 1
         [u=1:nstns, v=nonzerodests(np,u)],
-        srv[u,v] + srv_uw[u,v] + srv_wv[u,v] <= 1)
-    JuMP.@constraint(sp,
+            srv[u,v] + srv_uw[u,v] + srv_wv[u,v] <= 1
         [u=1:nstns, v=nonzerodests(np,u)],
-        srv_uw[u,v] <= ingraph[v])
-    JuMP.@constraint(sp,
+            srv_uw[u,v] <= ((length(xfrstops_uw[u,v]) == 0) ?
+                            0 : sum(ingraph[w] for w in xfrstops_uw[u,v]))
         [u=1:nstns, v=nonzerodests(np,u)],
-        srv_wv[u,v] <= ingraph[u])
-    JuMP.@constraint(sp,
-        [u=1:nstns, v=nonzerodests(np,u)],
-        srv_uw[u,v] <= 
-        ((length(xfrstops_uw[u,v]) == 0) ?
-            0 : sum(ingraph[w] for w in xfrstops_uw[u,v])))
-    JuMP.@constraint(sp,
-        [u=1:nstns, v=nonzerodests(np,u)],
-        srv_wv[u,v] <= 
-        ((length(xfrstops_wv[u,v]) == 0) ?
-            0 : sum(ingraph[w] for w in xfrstops_wv[u,v])))
+            srv_wv[u,v] <= ((length(xfrstops_wv[u,v]) == 0) ?
+                            0 : sum(ingraph[w] for w in xfrstops_wv[u,v]))
+    end
     
-    return srv_uw, srv_wv
+    srv_uw, srv_wv
 end
 
 """
@@ -141,6 +125,7 @@ function spcoeffs(
             coeffs_wv[u,v] = 1.0
         end
     end
+
     coeffs_uw, coeffs_wv
 end
 
@@ -213,7 +198,7 @@ function generatecolumn(
         error("Dual solution is not a valid path")
     end 
 
-    return path
+    path
 end 
 
 """
@@ -326,7 +311,8 @@ function generatecolumn(
     end
 
     auxinfo[:endtime] = time() - t0
-    return path, auxinfo 
+    
+    path, auxinfo 
 end
 
 function warmstart(sp::SubProblem, path::Vector{Int})
