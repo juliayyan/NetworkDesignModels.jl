@@ -54,7 +54,7 @@ function MasterProblem(
     )
     @assert in(modeltype, [:lp, :ip])
     @assert in(gridtype, [:latlong, :euclidean])
-    @assert transferparam >= 0.0 && transferparam <= 1.0
+    @assert abs(transferparam) <= 1.0
 
     commutelines = allcommutelines(np, nlegs, linelist, transferparam, gridtype)
 
