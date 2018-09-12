@@ -28,10 +28,11 @@ Contains information on both the transit network and the optimization model.
 
 ### Keyword Arguments
 * `gridtype`: `:latlong` or `:euclidean`.
-* `linelist`:
+* `linelist`: A vector of the lines (assumed to be unique) in the transit
+    network. Each line is a vector of ints corresponding to the stations on it.
 * `nlegs`: The maximum number of lines being used for any given commute. So if
     `nlegs=2`, then only a single transfer is allowed.
-* `transferparam`:
+* `transferparam`: -1 to 1. Lower values for sharper-angled transfers.
 * `solver`: The solver being used to solve the problem.
 * `modeltype`: `ip` or `lp`, to determine whether the relaxation is used.
 
@@ -47,12 +48,13 @@ function MasterProblem(
         gridtype::Symbol = :latlong,
         linelist::Vector{Vector{Int}} = uniquelines(np.lines),
         nlegs::Int = 1,
-        transferparam::Float64 = 0.0, # -1 to 1. lower values for sharper-angled transfers
+        transferparam::Float64 = 0.0,
         solver = Gurobi.GurobiSolver(OutputFlag = 0),
         modeltype::Symbol = :lp
     )
     @assert in(modeltype, [:lp, :ip])
     @assert in(gridtype, [:latlong, :euclidean])
+    @assert transferparam >= 0.0 && transferparam <= 1.0
 
     commutelines = allcommutelines(np, nlegs, linelist, transferparam, gridtype)
 
