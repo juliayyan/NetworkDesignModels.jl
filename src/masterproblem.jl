@@ -92,19 +92,13 @@ function mastermodel(
     if length(commutelines) == 2
         pairs = unique(vcat(values(commutelines[2])...))
         JuMP.@variable(rmp, aux[pairs])
-        JuMP.@constraint(rmp,
-            pair1[p in pairs],
-            aux[p] <= x[p[1]])
-        JuMP.@constraint(rmp,
-            pair2[p in pairs],
-            aux[p] <= x[p[2]])
+        JuMP.@constraint(rmp, pair1[p in pairs], aux[p] <= x[p[1]])
+        JuMP.@constraint(rmp, pair2[p in pairs], aux[p] <= x[p[2]])
     else
         pair1 = pair2 = nothing
     end
     JuMP.@variable(rmp, budget)
-    JuMP.@variable(rmp,
-        θ[u=1:np.nstations,v=nonzerodests(np,u)]
-    )
+    JuMP.@variable(rmp, θ[u=1:np.nstations,v=nonzerodests(np,u)])
     
     # maximize ridership
     JuMP.@objective(rmp, 
@@ -114,7 +108,7 @@ function mastermodel(
     )
 
     # choice constraints
-    JuMP.@constraint(rmp, 
+    JuMP.@constraint(rmp,
         choseub[u=1:np.nstations, v=nonzerodests(np,u)],
         θ[u,v] <= 1
     )
