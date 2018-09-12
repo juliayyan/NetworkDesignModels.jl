@@ -125,10 +125,8 @@ function SubProblemCP(
             np, sp, srv, ingraph, xfrstops_uw, xfrstops_wv
         )
     else
-        xfrstops_uw = xfrstops_wv = nothing
-        srv_uw = srv_wv = nothing
+        srv_uw = srv_wv = xfrstops_uw = xfrstops_wv = nothing
     end
-
 
     auxinfo = Dict{Symbol,Any}()
     auxinfo[:nlazy] = 0
@@ -136,19 +134,8 @@ function SubProblemCP(
     function removecycles(cb)
         visited = falses(np.nstations) # whether a node has been visited
         visited[setdiff(1:np.nstations, find(JuMP.getvalue(ingraph)))] = true
-        source_val = sink_val = 0
-        for u in 1:np.nstations
-            if round(JuMP.getvalue(src[u])) > 0.1
-                source_val = u
-                break
-            end
-        end
-        for u in 1:np.nstations 
-            if round(JuMP.getvalue(snk[u])) > 0.1
-                sink_val = u
-                break
-            end
-        end
+        source_val = findfirst(round.(JuMP.getvalue.(src)) .> 0.1)
+        sink_val = findfirst(round.(JuMP.getvalue.(snk)) .> 0.1)
         @assert source_val > 0
         @assert sink_val > 0
         @assert source_val != sink_val
@@ -165,7 +152,7 @@ function SubProblemCP(
                                for v in intersect(outneighbors[u], cyclenodes))
                            for u in cyclenodes)
                 JuMP.@lazyconstraint(cb, expr <= length(cyclenodes) - 1)
-                auxinfo[:nlazy] = auxinfo[:nlazy] + 1
+                auxinfo[:nlazy] += 1
             end
         end
     end
