@@ -26,7 +26,7 @@ module ColumnGeneration
                      collect(keys(stopclusters)))
         stopclusters[u] = u
     end 
-            
+
     @testset "Loading Network" begin
         @test nstns == 410
         @test length(np.lines) == 46

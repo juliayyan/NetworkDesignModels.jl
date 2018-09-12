@@ -7,8 +7,8 @@ have a direct connection.
 ### Returns
 A `(xfrstops_uw, xfrstops_wv)` tuple, where
 
-* `xfrstops_uw[u,v]` is the vector of ints corresponding to `w`, and
-* `xfrstops_wv[u,v]` is the vector of ints corresponding to `w`.
+* `xfrstops_uw[u,v]` is the vector of `w`s that has a connection from `u`, and
+* `xfrstops_wv[u,v]` is the vector of `w`s that has a connection to `v`.
 """
 function computexfrstns(rmp::MasterProblem, gridtype::Symbol)
     const linelist = rmp.linelist[find(round.(JuMP.getvalue(rmp.x), 5))]
@@ -39,8 +39,7 @@ end
 "finds path from source to sink using subproblem `sp`"
 function getpath(sp::SubProblem)
     if round(JuMP.getobjectivevalue(sp.model)) > 0
-        np = sp.np
-        visited = falses(np.nstations)
+        visited = falses(sp.np.nstations)
         source_val = findfirst(round.(JuMP.getvalue(sp.src)))
         sink_val = findfirst(round.(JuMP.getvalue(sp.snk)))
         return getpath(

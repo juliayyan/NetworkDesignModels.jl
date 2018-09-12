@@ -79,10 +79,10 @@ function mastermodel(
         solver,
         modeltype::Symbol
     )
-
     const nlines = length(linelist)
 
     rmp = JuMP.Model(solver=solver)
+
     if modeltype == :lp
         JuMP.@variable(rmp, x[l=1:nlines] >= 0)
     elseif modeltype == :ip
@@ -105,7 +105,6 @@ function mastermodel(
         sum(sum(np.odmatrix[u,v]*θ[u,v] for v in nonzerodests(np,u)) 
                                         for u in 1:np.nstations)
     )
-
     # choice constraints
     JuMP.@constraint(rmp,
         choseub[u=1:np.nstations, v=nonzerodests(np,u)],
@@ -115,10 +114,8 @@ function mastermodel(
         choseline[u=1:np.nstations, v=nonzerodests(np,u)],
         θ[u,v] <= sum(x[l] for l in commutelines[1][u,v]) +
         ((length(commutelines) == 1) || (length(commutelines[2][u,v]) == 0) ? 
-            0 :
-            sum(aux[pair] for pair in commutelines[2][u,v]))
+            0 : sum(aux[pair] for pair in commutelines[2][u,v]))
     )
-    
     # budget constraint
     JuMP.@constraint(rmp, bcon, dot(costs, x) <= budget)
 
@@ -169,7 +166,7 @@ function allcommutelines(
     @assert nlegs <= 2
 
     commutelines = [Dict{Tuple{Int,Int},Any}() for i in 1:nlegs]
-    # 1. initialize each (u,v) entry in commutelines as an empty vector.
+    # 1. Initialize each (u,v) entry as an empty vector.
     for u in 1:np.nstations, v in nonzerodests(np,u)
         # (u,v) --> lines that connect u and v
         commutelines[1][u,v] = Int[]
@@ -177,10 +174,10 @@ function allcommutelines(
             commutelines[2][u,v] = Tuple{Int,Int}[]
         end
     end
-    # 2. populate the (u,v) entries in commutelines.
+    # 2. Populate the (u,v) entries in commutelines.
     # 
-    # We begin with an empty list, and slowly add each line using the addline!()
-    # method. At the end, we should recover the original list of lines.
+    # We begin with an empty list, and iteratively add each line using the
+    # addline!() method. At the end, we should recover the original linelist.
     linelistcopy = Vector{Int}[]
     for line in linelist
         linelistcopy = addline!(
@@ -203,14 +200,15 @@ function addline!(
         transferparam::Float64,
         gridtype::Symbol
     )
-    l1 = length(oldlines)+1 # We introduce a new `line`, with index `l1`.
-    # single-leg commutes
+    l1 = length(oldlines) + 1 # We introduce a new `line` with index `l1`.
+    # Single-leg commutes
     for u in line, v in line
+        # in(v, nonzerodests(np, u)) && push!(commutelines[1][u,v], l1)
         u == v && continue
         !in(v, nonzerodests(np, u)) && continue
         push!(commutelines[1][u,v], l1)
     end
-    # two-leg commutes
+    # Two-leg commutes
     if length(commutelines) == 2
         for l2 in 1:length(oldlines)
             line2 = oldlines[l2]

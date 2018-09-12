@@ -106,7 +106,7 @@ function SubProblemCP(
             !in(u, nodeset) && !in(v, nodeset) && continue
             d = edgecost(np, u, v, gridtype)
             if (d < maxdist)
-                dists[u,v] = d 
+                dists[u,v] = d
                 push!(outneighbors[u], v)
                 push!(inneighbors[v], u)
                 dists[v,u] = d
