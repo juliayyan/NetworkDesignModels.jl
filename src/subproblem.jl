@@ -1,6 +1,3 @@
-"""
-SubProblem
-"""
 mutable struct SubProblem
     np::TN.TransitNetworkProblem
     model::JuMP.Model

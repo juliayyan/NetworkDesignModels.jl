@@ -151,8 +151,11 @@ This function helps solve the subproblem many times just changing the objective
 without rebuilding the model.
 
 ### Keyword Arguments
-    * `coeffs`: a tuple (coeffs_uw, coeffs_wv) for the p variables.
-    * `trackingstatuses`: for tracking information through solver callbacks.
+* `coeffs`: a tuple (coeffs_uw, coeffs_wv) for the p variables.
+* `trackingstatuses`: for tracking information through solver callbacks.
+
+### Returns
+`path`
 """
 function generatecolumn(
         sp::SubProblem, 
@@ -217,23 +220,23 @@ It starts with edge-restricted networks and iteratively builds up
 relevant sections of the network.
 
 ### Keyword Arguments
-    * `coeffs`: a tuple (coeffs_uw, coeffs_wv) for the p variables.
-    * `directions`: a vector of directions z to run the subproblem with
-        preprocessed edge set E(z, delta).
-    * `nlegs`: the (maximum) number of legs of each commute.
-    * `maxdist`: the threshold distance for two stations to be considered
-        neighbors. The distance is measured based on the `gridtype` in
-        `rmp::MasterProblem`.
-    * `delta`: tolerance within `direction` for edges in the graph to obey.
-    * `maxlength`: the maximum number of edges in a path
-    * `stepsize`:
-    * `solver`: The solver being used to solve the problem.
-    * `maxiterations`: The maximum number of iterations to build up relevant
-            sections of the network for.
-    * `trackingstatuses`: for tracking information through solver callbacks.
+* `coeffs`: a tuple (coeffs_uw, coeffs_wv) for the p variables.
+* `directions`: a vector of directions z to run the subproblem with
+    preprocessed edge set E(z, delta).
+* `nlegs`: the (maximum) number of legs of each commute.
+* `maxdist`: the threshold distance for two stations to be considered
+    neighbors. The distance is measured based on the `gridtype` in
+    `rmp::MasterProblem`.
+* `delta`: tolerance within `direction` for edges in the graph to obey.
+* `maxlength`: the maximum number of edges in a path
+* `stepsize`:
+* `solver`: The solver being used to solve the problem.
+* `maxiterations`: The maximum number of iterations to build up relevant
+        sections of the network for.
+* `trackingstatuses`: for tracking information through solver callbacks.
 
 ### Returns
-
+A `(path, auxinfo)` tuple.
 """
 function generatecolumn(
         rmp::MasterProblem; 
