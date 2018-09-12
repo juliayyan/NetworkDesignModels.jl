@@ -34,7 +34,7 @@ function edgecost(
         gridtype::Symbol
     )
     if gridtype == :latlong
-        return TN.haversinedistance(np,u,v)
+        return TN.haversinedistance(np, u, v)
     elseif gridtype == :euclidean
         return norm(np.latlngs[u,:] - np.latlngs[v,:])
     else
@@ -63,8 +63,8 @@ end
 
 function dir(np::TN.TransitNetworkProblem, u::Int, v::Int, gridtype::Symbol)
     if gridtype == :latlong
-        latu, lonu = np.latlngs[u, :]
-        latv, lonv = np.latlngs[v, :]
+        latu, lonu = np.latlngs[u,:]
+        latv, lonv = np.latlngs[v,:]
         x = cosd(latv) * sind(lonv-lonu)
         y = cosd(latu) * sind(latv) - sind(latu) * cosd(latv) * cosd(lonv-lonu)
         return [x,y]
