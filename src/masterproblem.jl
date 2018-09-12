@@ -203,10 +203,7 @@ function addline!(
     l1 = length(oldlines) + 1 # We introduce a new `line` with index `l1`.
     # Single-leg commutes
     for u in line, v in line
-        # in(v, nonzerodests(np, u)) && push!(commutelines[1][u,v], l1)
-        u == v && continue
-        !in(v, nonzerodests(np, u)) && continue
-        push!(commutelines[1][u,v], l1)
+        in(v, nonzerodests(np, u)) && push!(commutelines[1][u,v], l1)
     end
     # Two-leg commutes
     if length(commutelines) == 2

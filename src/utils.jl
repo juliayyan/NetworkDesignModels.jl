@@ -1,7 +1,10 @@
 """
-Returns a vector of stops `v` with positive demand (i.e. np.odmatrix[u,v] > 0).
+Return a vector of stops `v` with positive demand from stop `u`.
+
+It ensures that `np.odmatrix[u,v] > 0`, and that `u` itself does not appear.
 """
-nonzerodests(np::TN.TransitNetworkProblem, u::Int) = find(np.odmatrix[u,:] .> 0)
+nonzerodests(np::TN.TransitNetworkProblem, u::Int) =
+    filter!(i -> i != u, find(np.odmatrix[u,:] .> 0))
 
 function uniquelines(linelist::Vector{Vector{Int}})
     uniquelines = Vector{Int}[]
