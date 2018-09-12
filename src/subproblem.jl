@@ -15,7 +15,7 @@ mutable struct SubProblem
     dists::Dict{Tuple{Int,Int},Float64}
     outneighbors::Vector{Vector{Int}}
     inneighbors::Vector{Vector{Int}}
-    nlegs
+    nlegs::Int
     auxinfo::Dict{Symbol,Any}
 end
 
@@ -31,7 +31,7 @@ function SubProblem(
     maxdist::Float64 = 0.5,
     direction::Vector{Float64} = [0.0,1.0],
     delta::Float64 = 1.0,
-    maxlength::Int = 30
+    maxlength::Int = 30 # maximum number of edges in a path
     )
     
     const np = rmp.np
@@ -91,7 +91,7 @@ function SubProblemCP(
     nlegs::Int = length(rmp.commutelines),
     solver = Gurobi.GurobiSolver(OutputFlag = 0),
     maxdist::Float64 = 0.5,
-    maxlength::Int = 30
+    maxlength::Int = 30 # maximum number of edges in a path
     )
 
     const np = rmp.np
