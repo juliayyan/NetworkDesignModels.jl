@@ -69,8 +69,7 @@ function SubProblem(
             np, sp, srv, ingraph, xfrstops_uw, xfrstops_wv
         )
     else
-        xfrstops_uw = xfrstops_wv = nothing
-        srv_uw = srv_wv = nothing
+        srv_uw = srv_wv = xfrstops_uw = xfrstops_wv = nothing
     end
 
     SubProblem(
