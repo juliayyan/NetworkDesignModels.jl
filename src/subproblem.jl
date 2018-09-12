@@ -22,13 +22,13 @@ SubProblem Constructor
 * within some `delta` tolerance of `direction`
 """
 function SubProblem(
-    rmp::MasterProblem;
-    nlegs::Int = length(rmp.commutelines), # want this in case 2-legs hard to solve
-    solver = Gurobi.GurobiSolver(OutputFlag = 0),
-    maxdist::Float64 = 0.5,
-    direction::Vector{Float64} = [0.0,1.0],
-    delta::Float64 = 1.0,
-    maxlength::Int = 30 # maximum number of edges in a path
+        rmp::MasterProblem;
+        nlegs::Int = length(rmp.commutelines), # want this in case 2-legs hard to solve
+        solver = Gurobi.GurobiSolver(OutputFlag = 0),
+        maxdist::Float64 = 0.5,
+        direction::Vector{Float64} = [0.0,1.0],
+        delta::Float64 = 1.0,
+        maxlength::Int = 30 # maximum number of edges in a path
     )
     
     const np = rmp.np
@@ -36,28 +36,28 @@ function SubProblem(
     const gridtype = rmp.gridtype
 
     # construct graph and ensure there are no cycles
-    dists = Dict{Tuple{Int,Int},Float64}() 
+    dists = Dict{Tuple{Int,Int},Float64}()
     outneighbors = [Int[] for u in 1:nstns]
     inneighbors  = [Int[] for u in 1:nstns]
     graph = LightGraphs.DiGraph(nstns)
-    for u in 1:nstns, v in (u+1):nstns 
+    for u in 1:nstns, v in (u+1):nstns
         d = edgecost(np, u, v, gridtype)
         b = dir(np,u,v,gridtype)
         sim = dot(direction,b)/norm(direction)/norm(b)
         if (d < maxdist) && (1-abs(sim) < delta)
             if sim >= 0
-                dists[u,v] = d 
+                dists[u,v] = d
                 push!(outneighbors[u], v)
                 push!(inneighbors[v], u)
                 LightGraphs.add_edge!(graph, (u,v))
             else
                 dists[v,u] = d
                 push!(outneighbors[v], u)
-                push!(inneighbors[u], v)    
+                push!(inneighbors[u], v)
                 LightGraphs.add_edge!(graph, (v,u))
             end
-        end 
-    end 
+        end
+    end
     @assert !LightGraphs.is_cyclic(graph)
 
     sp, src, snk, edg, srv, ingraph = basemodel(np, inneighbors, outneighbors, maxlength, solver)
@@ -65,30 +65,30 @@ function SubProblem(
     if nlegs == 2
         xfrstops_uw, xfrstops_wv = computexfrstns(rmp, gridtype)
         srv_uw, srv_wv = transfermodel(np, sp, srv, ingraph, xfrstops_uw, xfrstops_wv)
-    else 
+    else
         xfrstops_uw = xfrstops_wv = nothing
         srv_uw = srv_wv = nothing
     end
 
-    SubProblem(np, 
+    SubProblem(np,
         sp, src, snk, edg, srv, srv_uw, srv_wv,
         xfrstops_uw, xfrstops_wv,
         dists, outneighbors, inneighbors,
         nlegs, Dict{Symbol,Any}())
-end 
+end
 
 """
 SubProblem Constructor
-* Constructs a graph (not necessarily acyclic) 
+* Constructs a graph (not necessarily acyclic)
 * and solves by cutting planes
 """
 function SubProblemCP(
-    rmp::MasterProblem;
-    nodeset::Vector{Int} = Vector(1:rmp.np.nstations),
-    nlegs::Int = length(rmp.commutelines),
-    solver = Gurobi.GurobiSolver(OutputFlag = 0),
-    maxdist::Float64 = 0.5,
-    maxlength::Int = 30 # maximum number of edges in a path
+        rmp::MasterProblem;
+        nodeset::Vector{Int} = Vector(1:rmp.np.nstations),
+        nlegs::Int = length(rmp.commutelines),
+        solver = Gurobi.GurobiSolver(OutputFlag = 0),
+        maxdist::Float64 = 0.5,
+        maxlength::Int = 30 # maximum number of edges in a path
     )
 
     const np = rmp.np
@@ -109,8 +109,8 @@ function SubProblemCP(
                 push!(inneighbors[v], u)
                 dists[v,u] = d
                 push!(outneighbors[v], u)
-                push!(inneighbors[u], v)    
-            end 
+                push!(inneighbors[u], v)
+            end
         end
     end
 
@@ -118,7 +118,7 @@ function SubProblemCP(
     if nlegs == 2
         xfrstops_uw, xfrstops_wv = computexfrstns(rmp, gridtype)
         srv_uw, srv_wv = transfermodel(np, sp, srv, ingraph, xfrstops_uw, xfrstops_wv)
-    else 
+    else
         xfrstops_uw = xfrstops_wv = nothing
         srv_uw = srv_wv = nothing
     end
@@ -131,9 +131,9 @@ function SubProblemCP(
         visited = falses(np.nstations) # whether a node has been visited
         visited[setdiff(1:np.nstations,find(JuMP.getvalue(ingraph)))] = true
         source_val = sink_val = 0
-        for u in 1:np.nstations 
+        for u in 1:np.nstations
             if round(JuMP.getvalue(src[u])) > 0.1
-                source_val = u 
+                source_val = u
                 break
             end
         end
@@ -158,9 +158,9 @@ function SubProblemCP(
     end
     JuMP.addlazycallback(sp, removecycles)
    
-    SubProblem(np, 
+    SubProblem(np,
         sp, src, snk, edg, srv, srv_uw, srv_wv,
         xfrstops_uw, xfrstops_wv,
         dists, outneighbors, inneighbors,
-        nlegs, auxinfo) 
+        nlegs, auxinfo)
 end
