@@ -53,32 +53,8 @@ function MasterProblem(
     )
     @assert in(modeltype, [:lp, :ip])
     @assert in(gridtype, [:latlong, :euclidean])
-    @assert nlegs <= 2
-    
-    # `commutelines` is a vector of Dict{Tuple{Int,Int},Vector}, where
-    #
-    #     commutelines[i][u,v] is a vector of the i lines that connect u to v.
-    #
-    # In practice, we don't support i > 2, so 
-    #
-    #     commutelines[1][u,v] is a Vector{Int}, and
-    #     commutelines[2][u,v] is a Vector{Tuple{Int,Int}}.
-    #
-    commutelines = [Dict{Tuple{Int,Int},Any}() for i in 1:nlegs]
-    # 1. We initialize each (u,v) entry in commutelines as an empty vector.
-    for u in 1:np.nstations, v in nonzerodests(np,u)
-        # (u,v) --> lines that connect u and v
-        commutelines[1][u,v] = Int[]
-        if nlegs == 2 
-            commutelines[2][u,v] = Tuple{Int,Int}[]
-        end
-    end
-    # 2. We populate the (u,v) entries in commutelines.
-    linelistcopy = Vector{Int}[]
-    for line in linelist
-        addline!(np, linelistcopy, commutelines, line, transferparam, gridtype)
-    end
-    @assert linelistcopy == linelist
+
+    commutelines = allcommutelines(np, nlegs, linelist, transferparam, gridtype)
 
     # cost computation
     costs = [linecost(np, line, gridtype) for line in linelist]
@@ -91,7 +67,7 @@ function MasterProblem(
         np, linelist, commutelines, transferparam, costs, gridtype,
         rmp, budget, x, θ, choseline, bcon, choseub, pair1, pair2,
         solver, modeltype)
-end 
+end
 
 "build base master problem model"
 function mastermodel(
@@ -173,14 +149,53 @@ function addcolumn!(
             rmp.linelist, rmp.commutelines, rmp.costs, 
             rmp.solver, rmp.modeltype)
     JuMP.fix(rmp.budget, initialbudget)
-end 
+end
+
+"""
+Returns a vector (with length `nlegs<=2`) of Dict{Tuple{Int,Int},Vector}, where
+
+    commutelines[i][u,v] is a vector of the i lines that connect u to v.
+
+In practice, we don't support i > 2, so 
+
+    commutelines[1][u,v] is a Vector{Int}, and
+    commutelines[2][u,v] is a Vector{Tuple{Int,Int}}.
+"""
+function allcommutelines(
+        np::TN.TransitNetworkProblem,
+        nlegs::Int,
+        linelist::Vector{Vector{Int}},
+        transferparam::Float64,
+        gridtype::Symbol
+    )
+    @assert nlegs <= 2
+
+    commutelines = [Dict{Tuple{Int,Int},Any}() for i in 1:nlegs]
+    # 1. initialize each (u,v) entry in commutelines as an empty vector.
+    for u in 1:np.nstations, v in nonzerodests(np,u)
+        # (u,v) --> lines that connect u and v
+        commutelines[1][u,v] = Int[]
+        if nlegs == 2 
+            commutelines[2][u,v] = Tuple{Int,Int}[]
+        end
+    end
+    # 2. populate the (u,v) entries in commutelines.
+    # 
+    # We begin with an empty list, and slowly add each line using the addline!()
+    # method. At the end, we should recover the original list of lines.
+    linelistcopy = Vector{Int}[]
+    for line in linelist
+        linelistcopy = addline!(
+            np, linelistcopy, commutelines, line, transferparam, gridtype
+        )
+    end
+    @assert linelistcopy == linelist
+
+    return commutelines
+end
 
 """
 Modify `oldlines` and `commutelines` in-place, adding information about `line`.
-
-### Remark
-This is used as an utility function inside the constructor for MasterProblem,
-and is not meant for ordinary usage.
 """
 function addline!(
         np::TN.TransitNetworkProblem,
@@ -190,13 +205,13 @@ function addline!(
         transferparam::Float64,
         gridtype::Symbol
     )
-    l1 = length(oldlines)+1
+    l1 = length(oldlines)+1 # We introduce a new `line`, with index `l1`.
     # single-leg commutes
     for u in line, v in line
         u == v && continue
         !in(v, nonzerodests(np, u)) && continue
         push!(commutelines[1][u,v], l1)
-    end 
+    end
     # two-leg commutes
     if length(commutelines) == 2
         for l2 in 1:length(oldlines)
@@ -204,21 +219,21 @@ function addline!(
             xfrstns = intersect(line, line2)
             length(xfrstns) == 0 && continue
             for u in setdiff(line, xfrstns), v in setdiff(line2, xfrstns)
-                for w in xfrstns 
+                for w in xfrstns
                     if validtransfer(np, u, v, w, transferparam, gridtype)
                         pair = (min(l1, l2), max(l1, l2))
-                        haskey(commutelines[2], (u, v)) && 
+                        haskey(commutelines[2], (u, v)) &&
                             push!(commutelines[2][u,v], pair)
-                        haskey(commutelines[2], (v, u)) && 
+                        haskey(commutelines[2], (v, u)) &&
                             push!(commutelines[2][v,u], pair)
                         break
                     end
-                end        
+                end
             end
         end
     end
     push!(oldlines, line)
-end 
+end
 
 """
 Solves `mp::MasterProblem` with the given `budget`.
