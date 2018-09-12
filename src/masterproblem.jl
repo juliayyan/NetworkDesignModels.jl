@@ -62,8 +62,7 @@ function MasterProblem(
     costs = [linecost(np, line, gridtype) for line in linelist]
 
     rmp, budget, x, θ, choseline, bcon, choseub, pair1, pair2 = 
-        mastermodel(np, linelist, commutelines, costs, 
-                    solver, modeltype)
+        mastermodel(np, linelist, commutelines, costs, solver, modeltype)
     
     MasterProblem(
         np, linelist, commutelines, transferparam, costs, gridtype, rmp, budget,
@@ -141,12 +140,12 @@ function addcolumn!(
     push!(rmp.costs, linecost(rmp.np, line,rmp.gridtype))
     initialbudget = JuMP.getvalue(rmp.budget)
 
-    rmp.model, rmp.budget, 
-    rmp.x, rmp.θ, rmp.choseline, 
-    rmp.bcon, rmp.choseub, rmp.pair1, rmp.pair2 = 
-        mastermodel(rmp.np, 
-            rmp.linelist, rmp.commutelines, rmp.costs, 
-            rmp.solver, rmp.modeltype)
+    rmp.model, rmp.budget, rmp.x, rmp.θ, rmp.choseline, rmp.bcon, rmp.choseub,
+    rmp.pair1, rmp.pair2 = 
+        mastermodel(
+            rmp.np, rmp.linelist, rmp.commutelines, rmp.costs, rmp.solver,
+            rmp.modeltype
+        )
     JuMP.fix(rmp.budget, initialbudget)
 end
 
