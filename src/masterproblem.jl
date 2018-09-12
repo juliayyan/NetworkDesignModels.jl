@@ -26,6 +26,15 @@ Returns a MasterProblem object.
 
 Contains information on both the transit network and the optimization model.
 
+### Keyword Arguments
+* `gridtype`: `:latlong` or `:euclidean`.
+* `linelist`:
+* `nlegs`: The maximum number of lines being used for any given commute. So if
+    `nlegs=2`, then only a single transfer is allowed.
+* `transferparam`:
+* `solver`: The solver being used to solve the problem.
+* `modeltype`: `ip` or `lp`, to determine whether the relaxation is used.
+
 ### Quick Example
 ```
 np = load("data/processed/networks/9b-transitnetwork.jld2", "keynetwork")
@@ -36,7 +45,6 @@ NetworkDesignModels.optimize(rmp, 5.0) # solves the problem with a budget of 5
 function MasterProblem(
         np::TN.TransitNetworkProblem;
         gridtype::Symbol = :latlong,
-        initialbudget::Float64 = 0.0,
         linelist::Vector{Vector{Int}} = uniquelines(np.lines),
         nlegs::Int = 1,
         transferparam::Float64 = 0.0, # -1 to 1. lower allows sharper-angled transfers
@@ -47,7 +55,17 @@ function MasterProblem(
     @assert in(gridtype, [:latlong, :euclidean])
     @assert nlegs <= 2
     
+    # `commutelines` is a vector of Dict{Tuple{Int,Int},Vector}, where
+    #
+    #     commutelines[i][u,v] is a vector of the i lines that connect u to v.
+    #
+    # In practice, we don't support i > 2, so 
+    #
+    #     commutelines[1][u,v] is a Vector{Int}, and
+    #     commutelines[2][u,v] is a Vector{Tuple{Int,Int}}.
+    #
     commutelines = [Dict{Tuple{Int,Int},Any}() for i in 1:nlegs]
+    # 1. We initialize each (u,v) entry in commutelines as an empty vector.
     for u in 1:np.nstations, v in nonzerodests(np,u)
         # (u,v) --> lines that connect u and v
         commutelines[1][u,v] = Int[]
@@ -55,7 +73,7 @@ function MasterProblem(
             commutelines[2][u,v] = Tuple{Int,Int}[]
         end
     end
-
+    # 2. We populate the (u,v) entries in commutelines.
     linelistcopy = Vector{Int}[]
     for line in linelist
         addline!(np, linelistcopy, commutelines, line, transferparam,gridtype)
@@ -67,7 +85,6 @@ function MasterProblem(
     rmp, budget, x, θ, choseline, bcon, choseub, pair1, pair2 = 
         mastermodel(np, linelistcopy, commutelines, costs, 
                     solver, modeltype)
-    JuMP.fix(budget, initialbudget)
     
     MasterProblem(
         np, linelistcopy, commutelines, transferparam, costs, gridtype,
@@ -157,8 +174,13 @@ function addcolumn!(
     JuMP.fix(rmp.budget, initialbudget)
 end 
 
-"modifies `oldlines` and `commutelines` in-place, adding 
- information about `line`"
+"""
+Modify `oldlines` and `commutelines` in-place, adding information about `line`.
+
+### Remark
+This is used as an utility function inside the constructor for MasterProblem,
+and is not meant for ordinary usage.
+"""
 function addline!(
         np::TN.TransitNetworkProblem,
         oldlines::Vector{Vector{Int}},
@@ -199,6 +221,12 @@ function addline!(
     push!(oldlines, line)
 end 
 
+"""
+Solves `mp::MasterProblem` with the given `budget`.
+
+### Returns
+The optimal solution `x` as a vector of floats.
+"""
 function optimize(mp::MasterProblem, budget::Float64)
     JuMP.fix(mp.budget, budget)
     JuMP.solve(mp.model)
