@@ -130,8 +130,11 @@ function mastermodel(
     rmp, budget, x, θ, choseline, bcon, choseub, pair1, pair2
 end 
 
-"adds a new column to the master problem, updating network
- information and creating a new model"
+"""
+Adds a new column to the master problem.
+
+It updates network information and creates a new model.
+"""
 function addcolumn!(
         rmp::MasterProblem,
         line::Vector{Int}
