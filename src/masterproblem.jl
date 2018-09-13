@@ -209,6 +209,8 @@ function addline!(
             line2 = oldlines[l2]
             xfrstns = intersect(line, line2)
             length(xfrstns) == 0 && continue
+            # u --line-> (w in xfrstns)
+            #            (w in xfrstns) --line2-> v
             for u in setdiff(line, xfrstns), v in setdiff(line2, xfrstns)
                 for w in xfrstns
                     if validtransfer(np, u, v, w, transferparam, gridtype)
@@ -223,6 +225,7 @@ function addline!(
             end
         end
     end
+    # We update oldlines at the end to avoid conflicts with the earlier updates.
     push!(oldlines, line)
 end
 
