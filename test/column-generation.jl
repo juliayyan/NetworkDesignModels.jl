@@ -19,11 +19,14 @@ module ColumnGeneration
 
     # read stopclusters
     stopclusters = DataFrames.readtable("data/tidy/1-stopclusters.csv");
-    stopclusters = Dict(zip(stopclusters[:stop_id], stopclusters[:cluster_stop]))
-    for u in setdiff(unique(vcat(demand[:origin], demand[:destination])), collect(keys(stopclusters)))
+    stopclusters = Dict(zip(
+        stopclusters[:stop_id], stopclusters[:cluster_stop]
+    ))
+    for u in setdiff(unique(vcat(demand[:origin], demand[:destination])),
+                     collect(keys(stopclusters)))
         stopclusters[u] = u
     end 
-            
+
     @testset "Loading Network" begin
         @test nstns == 410
         @test length(np.lines) == 46
@@ -34,7 +37,8 @@ module ColumnGeneration
     # cluster stops of odmatrix
     demand[:origin]      = [stopclusters[u] for u in demand[:origin]]
     demand[:destination] = [stopclusters[u] for u in demand[:destination]]
-    demand = by(demand, [:origin, :destination, :hour], d -> DataFrame(demand = sum(d[:demand])))
+    demand = by(demand, [:origin, :destination, :hour],
+                d -> DataFrame(demand = sum(d[:demand])))
     demand = demand[demand[:origin] .!= demand[:destination],:]
     @testset "Clustering Stations" begin
         @test sum(demand[:demand]) == 364124
@@ -54,9 +58,7 @@ module ColumnGeneration
     
     @testset "Generating Columns" begin
         budget = 100.0 # corresponds to about 1/3 of the key budget (296)
-        rmp = NetworkDesignModels.MasterProblem(
-            np, 
-            initialbudget = budget)
+        rmp = NetworkDesignModels.MasterProblem(np)
         NetworkDesignModels.optimize(rmp, budget)
         @test length(rmp.linelist) == 23
         @test isapprox(JuMP.getobjectivevalue(rmp.model),93587.42418280317)

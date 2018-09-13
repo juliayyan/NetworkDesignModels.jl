@@ -33,14 +33,16 @@ function NetworkCoverageModel(
         θ[u,v,r] <= sum(x[l] for l in 1:length(np.lines) if np.linesegments[l,s])
     )
 
-    if budgettype == :count 
+    if budgettype == :count
         costs = ones(length(np.lines))
-    elseif budgettype == :distance         
-        costs = [sum(TransitNetworks.haversinedistance(np,np.lines[l][i],np.lines[l][i+1])
-                     for i in 1:length(np.lines[l])-1) 
+    elseif budgettype == :distance
+        costs = [sum(TransitNetworks.haversinedistance(np,
+                                                       np.lines[l][i],
+                                                       np.lines[l][i+1])
+                     for i in 1:length(np.lines[l])-1)
                  for l in 1:length(np.lines)]
     else
-        error("Incompatible budgettype") 
+        error("Incompatible budgettype")
     end 
     JuMP.@constraint(model, dot(costs, x) <= budget)
     
