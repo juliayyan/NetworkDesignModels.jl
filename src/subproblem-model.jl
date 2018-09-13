@@ -81,17 +81,14 @@ function transfermodel(
 end
 
 """
-Returns a tuple (coeffs_uw, coeffs_wv) corresponding to coefficients for p.
-
-
+Returns a tuple `(coeffs_uw, coeffs_wv)` corresponding to coefficients for p.
 """
 function spcoeffs(
         rmp::MasterProblem,
         sp::SubProblem
     )
     stnlines = [
-        find(in(u,line) for line in rmp.linelist)
-        for u in 1:rmp.np.nstations
+        find(in(u,line) for line in rmp.linelist) for u in 1:rmp.np.nstations
     ]
     xval = JuMP.getvalue(rmp.x)
     coeffs_uw = Dict{Tuple{Int,Int},Float64}()
@@ -104,7 +101,7 @@ function spcoeffs(
         wlines_wv = intersect(wlines_wv, stnlines[v])
         if length(wlines_uw) == 0
             if length(sp.xfrstops_uw[u,v]) > 0 
-                error("should have some intersection ", u, " ", v)
+                error("should have some intersection from $u to $v.")
             end
             coeffs_uw[u,v] = 0.0
         elseif round(sum(xval[wlines_uw]),5) == 0
@@ -114,7 +111,7 @@ function spcoeffs(
         end
         if length(wlines_wv) == 0
             if length(sp.xfrstops_wv[u,v]) > 0
-                error("should have some intersection ", u, " ", v)
+                error("should have some intersection from $u to $v.")
             end
             coeffs_wv[u,v] = 0.0
         elseif round(sum(xval[wlines_wv]),5) == 0
