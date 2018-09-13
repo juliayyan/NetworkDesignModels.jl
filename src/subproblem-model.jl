@@ -70,8 +70,6 @@ function transfermodel(
         [u=1:nstns, v=nonzerodests(np,u)],
             srv[u,v] + srv_uw[u,v] + srv_wv[u,v] <= 1
         [u=1:nstns, v=nonzerodests(np,u)],
-            srv[u,v] + srv_uw[u,v] + srv_wv[u,v] <= 1
-        [u=1:nstns, v=nonzerodests(np,u)],
             srv_uw[u,v] <= ((length(xfrstops_uw[u,v]) == 0) ?
                             0 : sum(ingraph[w] for w in xfrstops_uw[u,v]))
         [u=1:nstns, v=nonzerodests(np,u)],
