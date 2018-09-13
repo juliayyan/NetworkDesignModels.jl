@@ -17,9 +17,21 @@ mutable struct SubProblem
 end
 
 """
-SubProblem Constructor
-* Constructs an acyclic graph that only has edges 
-* within some `delta` tolerance of `direction`
+SubProblem with Edge Processing
+
+Constructs an acyclic graph that only has edges within some `delta` tolerance of
+`direction`.
+
+### Keyword Arguments
+* `nlegs`: the (maximum) number of legs of each commute.
+* `solver`: The solver being used to solve the problem.
+* `maxdist`: the threshold distance for two stations to be considered.
+    neighbors. The distance is measured based on the `gridtype` in
+    `rmp::MasterProblem`.
+* `direction`: The direction for which we run the subproblem with preprocessed
+    edge set E(direction, delta).
+* `delta`: tolerance within `direction` for edges in the graph to obey.
+* `maxlength`: the maximum number of edges in a path.
 """
 function SubProblem(
         rmp::MasterProblem;
@@ -79,9 +91,19 @@ function SubProblem(
 end
 
 """
-SubProblem Constructor
-* Constructs a graph (not necessarily acyclic)
-* and solves by cutting planes
+SubProblem with Cutting Planes
+
+Constructs a graph (not necessarily acyclic) to be optimized over by using
+cutting planes.
+
+### Keyword Arguments
+* `nodeset`: The set of stations under consideration.
+* `nlegs`: the (maximum) number of legs of each commute.
+* `solver`: The solver being used to solve the problem.
+* `maxdist`: the threshold distance for two stations to be considered.
+    neighbors. The distance is measured based on the `gridtype` in
+    `rmp::MasterProblem`.
+* `maxlength`: the maximum number of edges in a path.
 """
 function SubProblemCP(
         rmp::MasterProblem;
@@ -91,7 +113,6 @@ function SubProblemCP(
         maxdist::Float64 = 0.5,
         maxlength::Int = 30 # maximum number of edges in a path
     )
-
     const np = rmp.np
     const nstns = np.nstations
     const gridtype = rmp.gridtype
@@ -104,7 +125,7 @@ function SubProblemCP(
         for v in (u+1):nstns 
             !in(u, nodeset) && !in(v, nodeset) && continue
             d = edgecost(np, u, v, gridtype)
-            if (d < maxdist)
+            if d < maxdist
                 dists[u,v] = d
                 push!(outneighbors[u], v)
                 push!(inneighbors[v], u)

@@ -203,23 +203,23 @@ It starts with edge-restricted networks and iteratively builds up
 relevant sections of the network.
 
 ### Keyword Arguments
-* `coeffs`: a tuple (coeffs_uw, coeffs_wv) for the p variables.
-* `directions`: a vector of directions z to run the subproblem with
+* `coeffs`: A tuple (coeffs_uw, coeffs_wv) for the p variables.
+* `directions`: A vector of directions z to run the subproblem with
     preprocessed edge set E(z, delta).
-* `nlegs`: the (maximum) number of legs of each commute.
-* `maxdist`: the threshold distance for two stations to be considered
+* `nlegs`: The (maximum) number of legs of each commute.
+* `maxdist`: The threshold distance for two stations to be considered
     neighbors. The distance is measured based on the `gridtype` in
     `rmp::MasterProblem`.
-* `delta`: tolerance within `direction` for edges in the graph to obey.
-* `maxlength`: the maximum number of edges in a path
-* `stepsize`: the number of neighbor-lookaheads. `stepsize = 1` means that at
+* `delta`: Tolerance within `direction` for edges in the graph to obey.
+* `maxlength`: The maximum number of edges in a path.
+* `stepsize`: The number of neighbor-lookaheads. `stepsize = 1` means that at
     each iteration, we build up the graph by looking at the current nodeset +
     their neighbors. `stepsize = 2` means that we look at the current nodeset +
     neighbors + neighbors' neighbors, etc.
 * `solver`: The solver being used to solve the problem.
 * `maxiterations`: The maximum number of iterations to build up relevant
         sections of the network for.
-* `trackingstatuses`: for tracking information through solver callbacks.
+* `trackingstatuses`: For tracking information through solver callbacks.
 
 ### Returns
 A `(path, auxinfo)` tuple.
