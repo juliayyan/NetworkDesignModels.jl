@@ -135,7 +135,7 @@ without rebuilding the model.
 * `trackingstatuses`: for tracking information through solver callbacks.
 
 ### Returns
-`path`
+A `path::Vector{Int}` of the stations along the profitable line.
 """
 function generatecolumn(
         sp::SubProblem, 
