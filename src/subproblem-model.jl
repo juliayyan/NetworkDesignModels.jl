@@ -48,11 +48,19 @@ end
 Adds transferring variables and constraints to subproblem model `sp`.
 
 Use basemodel(...) for constructing a subproblem model.
+
+### Args
+* `srv[u,v]` corresponds to `g[1][u,v]` (`g[u,v]` in the direct-route model).
+* `ingraph` is a vector where `ingraph[u]` corresponds to a JuMP expression for
+    `sum(f[u,v] for u in In(v))`.
+* `xfrstops_uw[u,v]` contains the `w`s that have a connection from `u`, 
+    separated into vectors corresponding to active [1] and inactive [2] lines.
+* `xfrstops_wv[u,v]` contains the `w`s that have a connection to `v`,
+    separated into vectors corresponding to active [1] and inactive [2] lines.
 """
 function transfermodel(
         np::TN.TransitNetworkProblem,
         sp::JuMP.Model,
-        x,
         srv,
         ingraph,
         xfrstops_uw,
@@ -61,6 +69,7 @@ function transfermodel(
     const nstns = np.nstations
     const ncases = 4
 
+    # In the single-transfers model, srv2[u,v,i] corresponds to g[1+i][u,v].
     JuMP.@variable(sp, 0 <= srv2[u=1:nstns, v=nonzerodests(np,u),1:ncases] <= 1)
 
     JuMP.@constraints sp begin
@@ -83,27 +92,28 @@ function transfermodel(
             srv2[u,v,4] <= ((length(xfrstops_uw[u,v][2]) == 0) ?
                             0 : sum(ingraph[w] for w in xfrstops_uw[u,v][2]))
     end
-    
+
     srv2
 end
 
 """
-Returns a tuple `(coeffs_uw, coeffs_wv)` corresponding to coefficients for p.
+Returns a vector of dictionaries `coeffs` for the subproblem objective function.
+
+It is defined such that `coeffs[i][u,v]` corresponds to the objective
+coefficient for variable `srv2[u,v,i]` ("g[i+1][u,v]" in the writeup).
 """
 function spcoeffs(
         rmp::MasterProblem,
         sp::SubProblem
     )
-    xval = JuMP.getvalue(rmp.x)
     coeffs = [Dict{Tuple{Int,Int},Float64}() for i in 1:4]
-    # xfrstops_uw = Dict{Tuple{Int,Int},Vector{Vector{Int}}}() [active inactive]
-    # xfrstops_wv = Dict{Tuple{Int,Int},Vector{Vector{Int}}}() [active inactive]
     for u in 1:rmp.np.nstations, v in nonzerodests(rmp.np,u)
-        coeffs[1][u,v] = min(1.0, length(sp.xfrstops_uw[u,v][1]))
-        coeffs[2][u,v] = min(1.0, length(sp.xfrstops_wv[u,v][1]))
-        coeffs[3][u,v] = min(0.5, length(sp.xfrstops_uw[u,v][2]))
-        coeffs[4][u,v] = min(0.5, length(sp.xfrstops_wv[u,v][2]))
+        coeffs[1][u,v] = min(1.0, length(sp.xfrstops_uw[u,v][1])) # active
+        coeffs[2][u,v] = min(1.0, length(sp.xfrstops_wv[u,v][1])) # active
+        coeffs[3][u,v] = min(0.5, length(sp.xfrstops_uw[u,v][2])) # inactive
+        coeffs[4][u,v] = min(0.5, length(sp.xfrstops_wv[u,v][2])) # inactive
     end
+    
     coeffs
 end
 

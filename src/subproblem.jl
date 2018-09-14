@@ -77,7 +77,7 @@ function SubProblem(
     if nlegs == 2
         xfrstops_uw, xfrstops_wv = computexfrstns(rmp, gridtype)
         srv2 = transfermodel(
-            np, sp, rmp.x, srv, ingraph, xfrstops_uw, xfrstops_wv
+            np, sp, srv, ingraph, xfrstops_uw, xfrstops_wv
         )
     else
         srv2 = xfrstops_uw = xfrstops_wv = nothing
@@ -141,7 +141,7 @@ function SubProblemCP(
     if nlegs == 2
         xfrstops_uw, xfrstops_wv = computexfrstns(rmp, gridtype)
         srv2 = transfermodel(
-            np, sp, rmp.x, srv, ingraph, xfrstops_uw, xfrstops_wv
+            np, sp, srv, ingraph, xfrstops_uw, xfrstops_wv
         )
     else
         srv2 = xfrstops_uw = xfrstops_wv = nothing

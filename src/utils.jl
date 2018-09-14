@@ -18,6 +18,7 @@ function uniquelines(linelist::Vector{Vector{Int}})
         end
         isunique && push!(uniquelines, copy(line))
     end
+
     uniquelines
 end
 
@@ -61,6 +62,7 @@ function validtransfer(
     )
     dir1 = dir(np, u, w, gridtype)
     dir2 = dir(np, w, v, gridtype)
+    
     dot(dir1,dir2) / norm(dir1) / norm(dir2) >= transferparam
 end
 
