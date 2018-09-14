@@ -52,30 +52,39 @@ Use basemodel(...) for constructing a subproblem model.
 function transfermodel(
         np::TN.TransitNetworkProblem,
         sp::JuMP.Model,
+        x,
         srv,
         ingraph,
         xfrstops_uw,
         xfrstops_wv
     )
     const nstns = np.nstations
+    const ncases = 4
 
-    JuMP.@variable(sp, 0 <= srv_uw[u=1:nstns, v=nonzerodests(np,u)] <= 1)
-    JuMP.@variable(sp, 0 <= srv_wv[u=1:nstns, v=nonzerodests(np,u)] <= 1)
- 
+    JuMP.@variable(sp, 0 <= srv2[u=1:nstns, v=nonzerodests(np,u),1:ncases] <= 1)
+
     JuMP.@constraints sp begin
-        [u=1:nstns, v=nonzerodests(np,u)], srv_uw[u,v] <= ingraph[v]
-        [u=1:nstns, v=nonzerodests(np,u)], srv_wv[u,v] <= ingraph[u]
+        [u=1:nstns, v=nonzerodests(np,u)], srv2[u,v,1] <= ingraph[u]
+        [u=1:nstns, v=nonzerodests(np,u)], srv2[u,v,2] <= ingraph[v]
+        [u=1:nstns, v=nonzerodests(np,u)], srv2[u,v,3] <= ingraph[u]
+        [u=1:nstns, v=nonzerodests(np,u)], srv2[u,v,4] <= ingraph[v]
         [u=1:nstns, v=nonzerodests(np,u)],
-            srv[u,v] + srv_uw[u,v] + srv_wv[u,v] <= 1
-        [u=1:nstns, v=nonzerodests(np,u)],
-            srv_uw[u,v] <= ((length(xfrstops_uw[u,v]) == 0) ?
-                            0 : sum(ingraph[w] for w in xfrstops_uw[u,v]))
-        [u=1:nstns, v=nonzerodests(np,u)],
-            srv_wv[u,v] <= ((length(xfrstops_wv[u,v]) == 0) ?
-                            0 : sum(ingraph[w] for w in xfrstops_wv[u,v]))
+            srv[u,v] + sum(srv2[u,v,i] for i in 1:ncases) <= 1
+        [u=1:nstns, v=nonzerodests(np,u)], 
+            srv2[u,v,1] <= ((length(xfrstops_wv[u,v][1]) == 0) ?
+                            0 : sum(ingraph[w] for w in xfrstops_wv[u,v][1]))
+        [u=1:nstns, v=nonzerodests(np,u)],     
+            srv2[u,v,2] <= ((length(xfrstops_uw[u,v][1]) == 0) ?
+                            0 : sum(ingraph[w] for w in xfrstops_uw[u,v][1]))
+        [u=1:nstns, v=nonzerodests(np,u)], 
+            srv2[u,v,3] <= ((length(xfrstops_wv[u,v][2]) == 0) ?
+                            0 : sum(ingraph[w] for w in xfrstops_wv[u,v][2]))
+        [u=1:nstns, v=nonzerodests(np,u)], 
+            srv2[u,v,4] <= ((length(xfrstops_uw[u,v][2]) == 0) ?
+                            0 : sum(ingraph[w] for w in xfrstops_uw[u,v][2]))
     end
     
-    srv_uw, srv_wv
+    srv2
 end
 
 """
@@ -140,7 +149,9 @@ function generatecolumn(
         p,
         q;
         trackingstatuses::Vector{Symbol} = Symbol[],
-        coeffs::NTuple{2, Dict{Tuple{Int,Int},Float64}} = (
+        coeffs::NTuple{4, Dict{Tuple{Int,Int},Float64}} = (
+            Dict(k => 0.5 for k in keys(p)),
+            Dict(k => 0.5 for k in keys(p)),
             Dict(k => 0.5 for k in keys(p)),
             Dict(k => 0.5 for k in keys(p))
         )
@@ -148,8 +159,7 @@ function generatecolumn(
     JuMP.@objective(sp.model,
         Max,
         sum(sum(p[u,v] * (sp.srv[u,v] + (sp.nlegs == 1 ? 0 :  
-                                         (coeffs[1][u,v]*sp.srv_uw[u,v] + 
-                                          coeffs[2][u,v]*sp.srv_wv[u,v])))
+                                         sum(coeffs[i][u,v]*sp.srv2[u,v,i] for i in 1:4)))
             for v in nonzerodests(sp.np,u))
         for u in 1:sp.np.nstations) - 
         q * sum(sp.dists[u,v]*sp.edg[u,v]

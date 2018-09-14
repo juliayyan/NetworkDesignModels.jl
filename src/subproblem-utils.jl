@@ -7,28 +7,46 @@ have a direct connection.
 ### Returns
 A `(xfrstops_uw, xfrstops_wv)` tuple, where
 
-* `xfrstops_uw[u,v]` is the vector of `w`s that has a connection from `u`, and
-* `xfrstops_wv[u,v]` is the vector of `w`s that has a connection to `v`.
+* `xfrstops_uw[u,v]` contains the `w`s that have a connection from `u`, 
+    separated into vectors corresponding to active [1] and inactive [2] lines
+* `xfrstops_wv[u,v]` contains the `w`s that have a connection to `v`,
+    separated into vectors corresponding to active [1] and inactive [2] lines
 """
 function computexfrstns(rmp::MasterProblem, gridtype::Symbol)
-    const linelist = rmp.linelist[find(round.(JuMP.getvalue(rmp.x), 5))]
+    const activelines = find(round.(JuMP.getvalue(rmp.x), 5))
+    const linelist = rmp.linelist
     const nstns = rmp.np.nstations
     const stnlines = [find(in(u, line) for line in linelist) for u in 1:nstns]
-    xfrstops_uw = Dict{Tuple{Int,Int},Vector{Int}}()
-    xfrstops_wv = Dict{Tuple{Int,Int},Vector{Int}}()
+    xfrstops_uw = Dict{Tuple{Int,Int},Vector{Vector{Int}}}()
+    xfrstops_wv = Dict{Tuple{Int,Int},Vector{Vector{Int}}}()
     for u in 1:nstns, v in nonzerodests(rmp.np, u)
-        xfrstops_uw[u,v] = Int[]
-        xfrstops_wv[u,v] = Int[]
-        # Ignore all (u,v) pairs that have a direct connection.
-        length(intersect(stnlines[u], stnlines[v])) > 0 && continue
+        # Separate stops with active [1] and inactive [2] lines
+        xfrstops_uw[u,v] = [Int[],Int[]]
+        xfrstops_wv[u,v] = [Int[],Int[]]
+        # Ignore all (u,v) pairs that have an active direct route.
+        length(intersect(stnlines[u], stnlines[v],activelines)) > 0 && continue
         # Deal with all (u,v) pairs with a single transfer station w.
         for w in 1:nstns
             if validtransfer(rmp.np, u, v, w, rmp.transferparam, gridtype)
-                if length(intersect(stnlines[u], stnlines[w])) > 0
-                    push!(xfrstops_uw[u,v], w)
+                uwlines = intersect(stnlines[u], stnlines[w])
+                wvlines = intersect(stnlines[w], stnlines[v])
+                if length(uwlines) > 0
+                    # Lines connecting u and w are active
+                    if length(intersect(uwlines, activelines)) > 0
+                        push!(xfrstops_uw[u,v][1], w)
+                    # Lines connecting u and w are inactive
+                    else 
+                        push!(xfrstops_uw[u,v][2], w)
+                    end
                 end
-                if length(intersect(stnlines[w], stnlines[v])) > 0
-                    push!(xfrstops_wv[u,v], w)
+                if length(wvlines) > 0
+                    # Lines connecting w and v are active
+                    if length(intersect(wvlines, activelines)) > 0
+                        push!(xfrstops_wv[u,v][1], w)
+                    # Lines connecting w and v are inactive 
+                    else 
+                        push!(xfrstops_wv[u,v][2], w)
+                    end
                 end
             end 
         end
