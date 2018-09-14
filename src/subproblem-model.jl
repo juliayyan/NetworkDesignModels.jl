@@ -106,7 +106,6 @@ function spcoeffs(
         rmp::MasterProblem,
         sp::SubProblem
     )
-    xval = JuMP.getvalue(rmp.x)
     coeffs = [Dict{Tuple{Int,Int},Float64}() for i in 1:4]
     for u in 1:rmp.np.nstations, v in nonzerodests(rmp.np,u)
         coeffs[1][u,v] = min(1.0, length(sp.xfrstops_uw[u,v][1])) # active
