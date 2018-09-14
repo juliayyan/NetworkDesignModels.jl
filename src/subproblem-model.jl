@@ -94,41 +94,17 @@ function spcoeffs(
         rmp::MasterProblem,
         sp::SubProblem
     )
-    stnlines = [
-        find(in(u,line) for line in rmp.linelist) for u in 1:rmp.np.nstations
-    ]
     xval = JuMP.getvalue(rmp.x)
-    coeffs_uw = Dict{Tuple{Int,Int},Float64}()
-    coeffs_wv = Dict{Tuple{Int,Int},Float64}()
+    coeffs = [Dict{Tuple{Int,Int},Float64}() for i in 1:4]
+    # xfrstops_uw = Dict{Tuple{Int,Int},Vector{Vector{Int}}}() [active inactive]
+    # xfrstops_wv = Dict{Tuple{Int,Int},Vector{Vector{Int}}}() [active inactive]
     for u in 1:rmp.np.nstations, v in nonzerodests(rmp.np,u)
-        # all lines containing some w and either u or v
-        wlines_uw = unique(vcat(union(stnlines[sp.xfrstops_uw[u,v]]...)...))
-        wlines_wv = unique(vcat(union(stnlines[sp.xfrstops_wv[u,v]]...)...))
-        wlines_uw = intersect(wlines_uw, stnlines[u])
-        wlines_wv = intersect(wlines_wv, stnlines[v])
-        if length(wlines_uw) == 0
-            if length(sp.xfrstops_uw[u,v]) > 0 
-                error("should have some intersection from $u to $v.")
-            end
-            coeffs_uw[u,v] = 0.0
-        elseif round(sum(xval[wlines_uw]),5) == 0
-            coeffs_uw[u,v] = 0.5
-        else 
-            coeffs_uw[u,v] = 1.0
-        end
-        if length(wlines_wv) == 0
-            if length(sp.xfrstops_wv[u,v]) > 0
-                error("should have some intersection from $u to $v.")
-            end
-            coeffs_wv[u,v] = 0.0
-        elseif round(sum(xval[wlines_wv]),5) == 0
-            coeffs_wv[u,v] = 0.5
-        else 
-            coeffs_wv[u,v] = 1.0
-        end
+        coeffs[1][u,v] = min(1.0, length(sp.xfrstops_uw[u,v][1]))
+        coeffs[2][u,v] = min(1.0, length(sp.xfrstops_wv[u,v][1]))
+        coeffs[3][u,v] = min(0.5, length(sp.xfrstops_uw[u,v][2]))
+        coeffs[4][u,v] = min(0.5, length(sp.xfrstops_wv[u,v][2]))
     end
-
-    coeffs_uw, coeffs_wv
+    coeffs
 end
 
 """
@@ -149,12 +125,8 @@ function generatecolumn(
         p,
         q;
         trackingstatuses::Vector{Symbol} = Symbol[],
-        coeffs::NTuple{4, Dict{Tuple{Int,Int},Float64}} = (
-            Dict(k => 0.5 for k in keys(p)),
-            Dict(k => 0.5 for k in keys(p)),
-            Dict(k => 0.5 for k in keys(p)),
-            Dict(k => 0.5 for k in keys(p))
-        )
+        coeffs::Vector{Dict{Tuple{Int,Int},Float64}} = 
+            fill(Dict(k => 0.5 for k in keys(p)),4)
     )
     JuMP.@objective(sp.model,
         Max,

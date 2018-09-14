@@ -56,7 +56,8 @@ module ColumnGeneration2
                 p = getdual(rmp.choseline);
                 q = getdual(rmp.bcon);
                 s = getdual(rmp.choseub)
-                path = NetworkDesignModels.generatecolumn(sp, p, q)
+                path = NetworkDesignModels.generatecolumn(sp, p, q, 
+                    coeffs = NetworkDesignModels.spcoeffs(rmp,sp))
                 if length(path) == 0
                     break
                 end
@@ -66,7 +67,7 @@ module ColumnGeneration2
             end
         end
         @test isapprox(primal_objs[2], 7600.0)                     
-        @test isapprox(dual_objs[1], 7300.0)
+        @test isapprox(dual_objs[1], 7200.0)
         @test isapprox(primal_objs[end], sum(np.odmatrix))
 
     end 
