@@ -51,10 +51,22 @@ function computexfrstns(rmp::MasterProblem, gridtype::Symbol)
             end 
         end
     end
+
     xfrstops_uw, xfrstops_wv
 end
 
-"finds path from source to sink using subproblem `sp`"
+"""
+Returns path from source to sink.
+
+It assumes that the subproblem (being passed in) has been solved to a solution
+with a positive objective value. Returns an empty vector otherwise.
+
+### Arguments
+* `sp`: SubProblem whose optimal solution we're retrieving as a path.
+
+### Returns
+A vector of ints corresponding to stations along the path.
+"""
 function getpath(sp::SubProblem)
     if round(JuMP.getobjectivevalue(sp.model)) > 0
         visited = falses(sp.np.nstations)
@@ -64,11 +76,14 @@ function getpath(sp::SubProblem)
             source_val, source_val, sink_val, sp.edg, visited, sp.outneighbors
         )
     end
+
     Int[]
 end
 
-"helper function for wrapper getpath(), where `cur` can be 
- any starting node (in case of subtours)"
+"""
+Helper function for getpath(), where `cur` can be any starting node (in case of
+subtours).
+"""
 function getpath(
         cur::Int, 
         source_val::Int,
@@ -98,5 +113,6 @@ function getpath(
             end 
         end
     end
+    
     pathnodes
 end
