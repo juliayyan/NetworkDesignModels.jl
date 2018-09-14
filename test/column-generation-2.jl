@@ -61,6 +61,10 @@ module ColumnGeneration2
                 if length(path) == 0
                     break
                 end
+
+                if getobjectivevalue(sp.model) <= 100
+                    break
+                end
                 
                 push!(dual_objs, getobjectivevalue(sp.model))     
                 NetworkDesignModels.addcolumn!(rmp, path)
