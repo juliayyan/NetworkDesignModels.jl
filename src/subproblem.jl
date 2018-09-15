@@ -4,6 +4,7 @@ mutable struct SubProblem
     src::Vector{JuMP.Variable}
     snk::Vector{JuMP.Variable}
     edg::JuMP.JuMPDict{JuMP.Variable}
+    ingraph
     srv::JuMP.JuMPDict{JuMP.Variable}
     srv2
     xfrstops_uw
@@ -84,7 +85,7 @@ function SubProblem(
     end
 
     SubProblem(
-        np, sp, src, snk, edg, srv, srv2, xfrstops_uw, xfrstops_wv,
+        np, sp, src, snk, edg, ingraph, srv, srv2, xfrstops_uw, xfrstops_wv,
         dists, outneighbors, inneighbors, nlegs, Dict{Symbol,Any}()
     )
 end
@@ -178,7 +179,7 @@ function SubProblemCP(
     JuMP.addlazycallback(sp, removecycles)
    
     SubProblem(
-        np, sp, src, snk, edg, srv, srv2, xfrstops_uw, xfrstops_wv,
+        np, sp, src, snk, edg, ingraph, srv, srv2, xfrstops_uw, xfrstops_wv,
         dists, outneighbors, inneighbors, nlegs, auxinfo
     )
 end
