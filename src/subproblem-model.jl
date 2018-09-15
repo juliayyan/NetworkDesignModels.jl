@@ -108,10 +108,10 @@ function spcoeffs(
     )
     coeffs = [Dict{Tuple{Int,Int},Float64}() for i in 1:4]
     for u in 1:rmp.np.nstations, v in nonzerodests(rmp.np,u)
-        coeffs[1][u,v] = min(1.0, length(sp.xfrstops_uw[u,v][1])) # active
-        coeffs[2][u,v] = min(1.0, length(sp.xfrstops_wv[u,v][1])) # active
-        coeffs[3][u,v] = min(0.5, length(sp.xfrstops_uw[u,v][2])) # inactive
-        coeffs[4][u,v] = min(0.5, length(sp.xfrstops_wv[u,v][2])) # inactive
+        coeffs[1][u,v] = min(1.0, length(sp.xfrstops_wv[u,v][1])) # active
+        coeffs[2][u,v] = min(1.0, length(sp.xfrstops_uw[u,v][1])) # active
+        coeffs[3][u,v] = min(0.5, length(sp.xfrstops_wv[u,v][2])) # inactive
+        coeffs[4][u,v] = min(0.5, length(sp.xfrstops_uw[u,v][2])) # inactive
     end
     
     coeffs

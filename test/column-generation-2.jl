@@ -62,16 +62,18 @@ module ColumnGeneration2
                     break
                 end
 
-                if getobjectivevalue(sp.model) <= 100
-                    break
-                end
-                
                 push!(dual_objs, getobjectivevalue(sp.model))     
                 NetworkDesignModels.addcolumn!(rmp, path)
             end
         end
-        @test isapprox(primal_objs[2], 7600.0)                     
-        @test isapprox(dual_objs[1], 7200.0)
+        @test all(rmp.linelist[2] .== [3,1,2,5,13,11,9,10,12])
+        @test isapprox(dual_objs[1], 7400.0)
+        @test isapprox(dual_objs[2], 7400.0)
+        @test isapprox(dual_objs[3], 5400.0)
+        @test isapprox(dual_objs[4], 2600.0)
+        for i in 1:3
+            @test isapprox(primal_objs[i+1], primal_objs[i] + dual_objs[i])
+        end
         @test isapprox(primal_objs[end], sum(np.odmatrix))
 
     end 
