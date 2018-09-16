@@ -47,23 +47,26 @@ function edgecost(
 end
 
 """
-Returns true if the commute `u` -> `w` -> `v` obeys `transferparam`.
+Returns true if the commute `u` -> `w` -> `v` obeys `distparam` and `angleparam`.
 
-Uses `gridtype` to determine the distances between `u,w` and `w,v` when
-comparing the angle they made with transferparam.
+Uses `gridtype` to determine the distances and angle between `u,w` and `w,v`.
 """
 function validtransfer(
         np::TN.TransitNetworkProblem, 
         u::Int,
         v::Int,
         w::Int,
-        transferparam::Float64,
+        angleparam::Float64,
+        distparam::Float64,
         gridtype::Symbol
     )
     dir1 = dir(np, u, w, gridtype)
     dir2 = dir(np, w, v, gridtype)
-    
-    dot(dir1,dir2) / norm(dir1) / norm(dir2) >= transferparam
+    d_uw = edgecost(np, u, w, gridtype)
+    d_wv = edgecost(np, w, v, gridtype)
+    d_uv = edgecost(np, u, v, gridtype)
+    (d_uw + d_wv <= distparam*d_uv) && 
+        (dot(dir1,dir2) / norm(dir1) / norm(dir2) >= angleparam)
 end
 
 function dir(np::TN.TransitNetworkProblem, u::Int, v::Int, gridtype::Symbol)

@@ -3,7 +3,8 @@ mutable struct MasterProblem
     np::TN.TransitNetworkProblem
     linelist::Vector{Vector{Int}}
     commutelines::Vector{Dict{Tuple{Int,Int},Any}}
-    transferparam::Float64
+    angleparam::Float64
+    distparam::Float64
     costs::Vector{Float64}
     gridtype::Symbol
     
@@ -32,7 +33,8 @@ Contains information on both the transit network and the optimization model.
     network. Each line is a vector of ints corresponding to the stations on it.
 * `nlegs`: The maximum number of lines being used for any given commute. So if
     `nlegs=2`, then only a single transfer is allowed.
-* `transferparam`: -1 to 1. Lower values for sharper-angled transfers.
+* `angleparam`: -1 to 1. Lower values for sharper-angled transfers.
+* `distparam`: >= 1.0.  Higher values allow longer commutes.
 * `solver`: The solver being used to solve the problem.
 * `modeltype`: `ip` or `lp`, to determine whether the relaxation is used.
 
@@ -48,22 +50,24 @@ function MasterProblem(
         gridtype::Symbol = :latlong,
         linelist::Vector{Vector{Int}} = uniquelines(np.lines),
         nlegs::Int = 1,
-        transferparam::Float64 = 0.0,
+        angleparam::Float64 = -1.0, # deprecated by default
+        distparam::Float64 = 1.5,
         solver = Gurobi.GurobiSolver(OutputFlag = 0),
         modeltype::Symbol = :lp
     )
     @assert in(modeltype, [:lp, :ip])
     @assert in(gridtype, [:latlong, :euclidean])
-    @assert abs(transferparam) <= 1.0
+    @assert abs(angleparam) <= 1.0
+    @assert distparam >= 1.0
 
-    commutelines = allcommutelines(np, nlegs, linelist, transferparam, gridtype)
+    commutelines = allcommutelines(np, nlegs, linelist, angleparam, distparam, gridtype)
     costs = [linecost(np, line, gridtype) for line in linelist]
     rmp, budget, x, θ, choseline, bcon, choseub, pair1, pair2 = mastermodel(
         np, linelist, commutelines, costs, solver, modeltype
     )
     
     MasterProblem(
-        np, linelist, commutelines, transferparam, costs, gridtype, rmp, budget,
+        np, linelist, commutelines, angleparam, distparam, costs, gridtype, rmp, budget,
         x, θ, choseline, bcon, choseub, pair1, pair2, solver, modeltype
     )
 end
@@ -131,8 +135,8 @@ function addcolumn!(
     )
     # recompute line information
     addline!(
-        rmp.np, rmp.linelist, rmp.commutelines, line, rmp.transferparam,
-        rmp.gridtype
+        rmp.np, rmp.linelist, rmp.commutelines, line, 
+        rmp.angleparam, rmp.distparam, rmp.gridtype
     )
     push!(rmp.costs, linecost(rmp.np, line,rmp.gridtype))
     initialbudget = JuMP.getvalue(rmp.budget)
@@ -159,7 +163,8 @@ function allcommutelines(
         np::TN.TransitNetworkProblem,
         nlegs::Int,
         linelist::Vector{Vector{Int}},
-        transferparam::Float64,
+        angleparam::Float64,
+        distparam::Float64,
         gridtype::Symbol
     )
     @assert nlegs <= 2
@@ -179,7 +184,7 @@ function allcommutelines(
     linelistcopy = Vector{Int}[]
     for line in linelist
         linelistcopy = addline!(
-            np, linelistcopy, commutelines, line, transferparam, gridtype
+            np, linelistcopy, commutelines, line, angleparam, distparam, gridtype
         )
     end
     @assert linelistcopy == linelist
@@ -195,7 +200,8 @@ function addline!(
         oldlines::Vector{Vector{Int}},
         commutelines::Vector{Dict{Tuple{Int,Int},Any}},
         line::Vector{Int},
-        transferparam::Float64,
+        angleparam::Float64,
+        distparam::Float64,
         gridtype::Symbol
     )
     l1 = length(oldlines) + 1 # We introduce a new `line` with index `l1`.
@@ -213,7 +219,7 @@ function addline!(
             #            (w in xfrstns) --line2-> v
             for u in setdiff(line, xfrstns), v in setdiff(line2, xfrstns)
                 for w in xfrstns
-                    if validtransfer(np, u, v, w, transferparam, gridtype)
+                    if validtransfer(np, u, v, w, angleparam, distparam, gridtype)
                         pair = (min(l1, l2), max(l1, l2))
                         haskey(commutelines[2], (u, v)) &&
                             push!(commutelines[2][u,v], pair)

@@ -27,31 +27,26 @@ function computexfrstns(rmp::MasterProblem, gridtype::Symbol)
         length(intersect(stnlines[u], stnlines[v],activelines)) > 0 && continue
         # Deal with all (u,v) pairs with a single transfer station w.
         for w in 1:nstns
-            if validtransfer(rmp.np, u, v, w, rmp.transferparam, gridtype)
+            if validtransfer(rmp.np, u, v, w, rmp.angleparam, rmp.distparam, gridtype)
                 uwlines = intersect(stnlines[u], stnlines[w])
                 wvlines = intersect(stnlines[w], stnlines[v])
-                if length(uwlines) > 0
-                    # Lines connecting u and w are active
-                    if length(intersect(uwlines, activelines)) > 0
-                        push!(xfrstops_uw[u,v][1], w)
-                    # Lines connecting u and w are inactive
-                    else 
-                        push!(xfrstops_uw[u,v][2], w)
-                    end
+                # Lines connecting u and w are active
+                if (length(uwlines) > 0) && (length(intersect(uwlines, activelines)) > 0)
+                    push!(xfrstops_uw[u,v][1], w)
+                # Lines connecting u and w are inactive
+                elseif (length(uwlines) > 0)
+                    push!(xfrstops_uw[u,v][2], w)
                 end
-                if length(wvlines) > 0
-                    # Lines connecting w and v are active
-                    if length(intersect(wvlines, activelines)) > 0
-                        push!(xfrstops_wv[u,v][1], w)
-                    # Lines connecting w and v are inactive 
-                    else 
-                        push!(xfrstops_wv[u,v][2], w)
-                    end
+                # Lines connecting w and v are active    
+                if (length(wvlines) > 0) && (length(intersect(wvlines, activelines)) > 0)
+                    push!(xfrstops_wv[u,v][1], w)
+                # Lines connecting w and v are inactive 
+                elseif (length(wvlines) > 0)
+                    push!(xfrstops_wv[u,v][2], w)
                 end
             end 
         end
     end
-
     xfrstops_uw, xfrstops_wv
 end
 

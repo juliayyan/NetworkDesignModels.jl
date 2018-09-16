@@ -34,7 +34,7 @@ module ColumnGeneration2
             np, 
             linelist = [[1,6]],
             nlegs = 2,
-            transferparam = -0.25,
+            angleparam = -0.25,
             gridtype = gridtype
         );
         NetworkDesignModels.optimize(rmp, budget)
