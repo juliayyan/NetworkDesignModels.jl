@@ -108,6 +108,9 @@ function spcoeffs(
         rmp::MasterProblem,
         sp::SubProblem
     )
+    if sp.xfrstops_uw == nothing || sp.xfrstops_wv == nothing 
+            error("Can't create coefficients for the direct-route model.")
+    end
     coeffs = [Dict{Tuple{Int,Int},Float64}() for i in 1:4]
     for u in 1:rmp.np.nstations, v in nonzerodests(rmp.np,u)
         coeffs[1][u,v] = min(1.0, length(sp.xfrstops_wv[u,v][1])) # active
