@@ -111,7 +111,8 @@ function SubProblemCP(
         nlegs::Int = length(rmp.commutelines),
         solver = Gurobi.GurobiSolver(OutputFlag = 0),
         maxdist::Float64 = 0.5,
-        maxlength::Int = 30 # maximum number of edges in a path
+        maxlength::Int = 30,
+        traveltimes::Bool = false
     )
     const np = rmp.np
     const nstns = np.nstations
@@ -173,6 +174,19 @@ function SubProblemCP(
                            for u in cyclenodes)
                 JuMP.@lazyconstraint(cb, expr <= length(cyclenodes) - 1)
                 auxinfo[:nlazy] += 1
+            end
+        end
+        if traveltimes
+            for p_i in 1:length(simplepath), p_j in (p_i+2):length(simplepath)
+                directdist = NetworkDesignModels.edgecost(np,simplepath[p_i],simplepath[p_j],gridtype) 
+                pathsubset = simplepath[p_i:p_j]
+                subsetcost = NetworkDesignModels.linecost(np,pathsubset,gridtype)
+                if subsetcost > rmp.distparam*directdist
+                    JuMP.@lazyconstraint(cb, 
+                        sum(ingraph[u] for u in pathsubset) <= length(pathsubset) - 1)
+                    auxinfo[:nlazy] += 1
+                    break
+                end
             end
         end
     end
