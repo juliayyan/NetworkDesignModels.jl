@@ -34,14 +34,18 @@ function computexfrstns(rmp::MasterProblem, gridtype::Symbol)
                 if (length(uwlines) > 0) && (length(intersect(uwlines, activelines)) > 0)
                     push!(xfrstops_uw[u,v][1], w)
                 # Lines connecting u and w are inactive
-                else #if (length(uwlines) > 0) # this logic is sensitive to starting conditions
+                # Can afford to expand set of xfrstops if nstns is small, but gets very
+                # dense if nstns is large
+                elseif (length(uwlines) > 0) || nstns <= 20 
                     push!(xfrstops_uw[u,v][2], w)
                 end
                 # Lines connecting w and v are active    
                 if (length(wvlines) > 0) && (length(intersect(wvlines, activelines)) > 0)
                     push!(xfrstops_wv[u,v][1], w)
                 # Lines connecting w and v are inactive 
-                else #if (length(wvlines) > 0) # this logic is sensitive to starting conditions
+                # Can afford to expand set of xfrstops if nstns is small, but gets very
+                # dense if nstns is large
+                elseif (length(wvlines) > 0) || nstns <= 20 
                     push!(xfrstops_wv[u,v][2], w)
                 end
             end 
