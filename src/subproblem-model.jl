@@ -27,11 +27,15 @@ function basemodel(
         sum(edg) <= maxlength
         sum(src) == 1
         sum(snk) == 1
+        # degree of nodes should be at most one
+        # (handles an edge case that the subtour elimination doesn't
+        #  catch, which is loops within a bus line)
         [u=1:nstns], src[u] + sum(edg[v,u] for v in inneighbors[u]) <= 1
         [u=1:nstns], snk[u] + sum(edg[u,v] for v in outneighbors[u]) <= 1
         [u=1:nstns], src[u] + sum(edg[v,u] for v in inneighbors[u]) ==
                      snk[u] + sum(edg[u,v] for v in outneighbors[u])
-        [u=1:nstns], src[u] + snk[u] <= 1 # avoid singletons
+        # avoid singletons
+        [u=1:nstns], src[u] + snk[u] <= 1
     end
 
     # demand service
