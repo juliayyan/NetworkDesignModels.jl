@@ -41,7 +41,7 @@ function basemodel(
     # demand service
     JuMP.@expression(sp,
         ingraph[u=1:nstns],
-        src[u] + sum(edg[u2,u] for u2 in inneighbors[u]) + snk[u])
+        src[u] + sum(edg[u2,u] for u2 in inneighbors[u]))
     JuMP.@constraints sp begin
         [u=1:nstns, v=nonzerodests(np,u)], srv[u,v] <= ingraph[u]
         [u=1:nstns, v=nonzerodests(np,u)], srv[u,v] <= ingraph[v]
