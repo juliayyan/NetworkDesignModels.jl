@@ -164,9 +164,9 @@ function generatecolumn(
             sp.auxinfo[:bestbound] = Float64[]
             sp.auxinfo[:time]      = Float64[]
             function boundscallback(cb)
-                currobj = MathProgBase.cbgetobj(cb)
-                if ((length(sp.auxinfo[:obj]) == 0) ||
-                    (currobj > sp.auxinfo[:obj][end]))
+                currtime = time() - t0
+                if ((length(sp.auxinfo[:time]) == 0) ||
+                    (currtime > sp.auxinfo[:time][end] + 5))
                     push!(sp.auxinfo[:obj], MathProgBase.cbgetobj(cb))
                     push!(sp.auxinfo[:bestbound],
                           MathProgBase.cbgetbestbound(cb))
@@ -175,9 +175,9 @@ function generatecolumn(
             end
             JuMP.addinfocallback(sp.model, boundscallback, when = :Intermediate)
         elseif tracking == :MIPSol
-            sp.auxinfo[:time] = Float64[]
+            sp.auxinfo[:solntime] = Float64[]
             function solncallback(cb)
-                push!(sp.auxinfo[:time], time() - t0)
+                push!(sp.auxinfo[:solntime], time() - t0)
             end
             JuMP.addinfocallback(sp.model, solncallback, when = :MIPSol)
         end
