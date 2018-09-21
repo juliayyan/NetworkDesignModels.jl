@@ -182,8 +182,14 @@ function SubProblemCP(
                 pathsubset = simplepath[p_i:p_j]
                 subsetcost = NetworkDesignModels.linecost(np,pathsubset,gridtype)
                 if subsetcost > rmp.distparam*directdist
-                    expr = sum(sum(edg[u,v] for v in intersect(outneighbors[u], pathsubset)) 
-                        for u in pathsubset)
+                    mincost = insertionheuristic(np,pathsubset,gridtype)    
+                    if mincost >= subsetcost
+                        expr = sum(sum(edg[u,v] 
+                                       for v in intersect(outneighbors[u], pathsubset)) 
+                                   for u in pathsubset)
+                    else
+                        expr = sum(edg[pathsubset[k-1],pathsubset[k]] for k in 2:length(pathsubset)) 
+                    end
                     JuMP.@lazyconstraint(cb, 
                         expr <= length(pathsubset) - 2)
                     # this is wrong, too restrictive
