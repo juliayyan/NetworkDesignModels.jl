@@ -115,3 +115,29 @@ function getpath(
     
     pathnodes
 end
+
+"""
+uses an insertion heuristic to calculate shortest path through nodes
+starting at nodes[1]
+"""
+function insertionheuristic(
+    np::TransitNetworks.TransitNetworkProblem, 
+    nodes::Vector{Int},
+    gridtype::Symbol)
+    @assert length(unique(nodes)) == length(nodes)
+    visited = [false for u in nodes]
+    totalcost = 0
+    this = nodes[1]
+    visited[1] = true
+    while sum(.!visited) > 0
+        candidates = nodes[.!visited]
+        costs = [NetworkDesignModels.edgecost(np,this,that,gridtype) 
+                 for that in candidates]
+        totalcost += minimum(costs)
+        that = candidates[findmin(costs)[2]]
+        this = that
+        visited[findfirst(nodes .== that)] = true
+    end
+    totalcost
+end
+
