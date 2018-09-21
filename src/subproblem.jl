@@ -177,7 +177,8 @@ function SubProblemCP(
             end
         end
         if traveltimes
-            for p_i in 1:length(simplepath), p_j in (p_i+2):length(simplepath)
+            for len in 2:length(simplepath), p_i in 1:(length(simplepath)-len)
+                p_j = p_i+len
                 directdist = NetworkDesignModels.edgecost(np,simplepath[p_i],simplepath[p_j],gridtype) 
                 pathsubset = simplepath[p_i:p_j]
                 subsetcost = NetworkDesignModels.linecost(np,pathsubset,gridtype)
