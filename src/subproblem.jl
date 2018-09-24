@@ -178,33 +178,12 @@ function SubProblemCP(
             end
         end
         if traveltimes
-            for len in 2:length(simplepath), p_i in 1:(length(simplepath)-len)
-                p_j = p_i+len
-                directdist = NetworkDesignModels.edgecost(np,simplepath[p_i],simplepath[p_j],gridtype) 
-                pathsubset = simplepath[p_i:p_j]
-                subsetcost = NetworkDesignModels.linecost(np,pathsubset,gridtype)
-                if subsetcost > rmp.distparam*directdist
-                    if detail && length(pathsubset) <= 4
-                        mincost = minimum(insertionheuristic(np,pathsubset,gridtype,start) 
-                                          for start in 1:length(pathsubset))
-                    else 
-                        mincost = insertionheuristic(np,pathsubset,gridtype)    
-                    end
-                    if mincost >= subsetcost
-                        expr = sum(sum(edg[u,v] 
-                                       for v in intersect(outneighbors[u], pathsubset)) 
-                                   for u in pathsubset)
-                    else
-                        expr = sum(edg[pathsubset[k-1],pathsubset[k]] for k in 2:length(pathsubset))
-                    end
-                    JuMP.@lazyconstraint(cb, 
-                        expr <= length(pathsubset) - 2)
-                    # this is wrong, too restrictive
-                    # sum(ingraph[u] for u in pathsubset) <= length(pathsubset) - 1)
-                    auxinfo[:nlazy] += 1
-                    break
-                end
-            end
+            addlazytraveltimes(cb, 
+                np, edg, outneighbors,
+                rmp.gridtype, rmp.distparam,
+                detail,
+                auxinfo,
+                simplepath)
         end
     end
     JuMP.addlazycallback(sp, removecycles)
