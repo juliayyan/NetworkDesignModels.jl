@@ -112,7 +112,8 @@ function SubProblemCP(
         solver = Gurobi.GurobiSolver(OutputFlag = 0),
         maxdist::Float64 = 0.5,
         maxlength::Int = 30,
-        traveltimes::Bool = false
+        traveltimes::Bool = false,
+        detail::Bool = false
     )
     const np = rmp.np
     const nstns = np.nstations
@@ -183,13 +184,18 @@ function SubProblemCP(
                 pathsubset = simplepath[p_i:p_j]
                 subsetcost = NetworkDesignModels.linecost(np,pathsubset,gridtype)
                 if subsetcost > rmp.distparam*directdist
-                    mincost = insertionheuristic(np,pathsubset,gridtype)    
+                    if detail && length(pathsubset) <= 4
+                        mincost = minimum(insertionheuristic(np,pathsubset,gridtype,start) 
+                                          for start in 1:length(pathsubset))
+                    else 
+                        mincost = insertionheuristic(np,pathsubset,gridtype)    
+                    end
                     if mincost >= subsetcost
                         expr = sum(sum(edg[u,v] 
                                        for v in intersect(outneighbors[u], pathsubset)) 
                                    for u in pathsubset)
                     else
-                        expr = sum(edg[pathsubset[k-1],pathsubset[k]] for k in 2:length(pathsubset)) 
+                        expr = sum(edg[pathsubset[k-1],pathsubset[k]] for k in 2:length(pathsubset))
                     end
                     JuMP.@lazyconstraint(cb, 
                         expr <= length(pathsubset) - 2)
