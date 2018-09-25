@@ -1,5 +1,5 @@
 using NetworkDesignModels
 using Base.Test
 
-# write your own tests here
-@test 1 == 2
+include("column-generation.jl")
+include("column-generation-2.jl")
