@@ -144,6 +144,7 @@ function generatecolumn(
         p,
         q;
         trackingstatuses::Vector{Symbol} = Symbol[],
+        trackingtimegrid::Int = 5,
         coeffs::Vector{Dict{Tuple{Int,Int},Float64}} = 
             fill(Dict(k => 0.5 for k in keys(p)),4)
     )
@@ -166,7 +167,7 @@ function generatecolumn(
             function boundscallback(cb)
                 currtime = time() - t0
                 if ((length(sp.auxinfo[:time]) == 0) ||
-                    (currtime > sp.auxinfo[:time][end] + 5))
+                    (currtime > sp.auxinfo[:time][end] + trackingtimegrid))
                     push!(sp.auxinfo[:obj], MathProgBase.cbgetobj(cb))
                     push!(sp.auxinfo[:bestbound],
                           MathProgBase.cbgetbestbound(cb))
