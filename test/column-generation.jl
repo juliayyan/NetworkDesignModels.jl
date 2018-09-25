@@ -1,7 +1,7 @@
 module ColumnGeneration
 
     using TransitNetworks, NetworkDesignModels, Gurobi, JuMP
-    using DataFrames, JLD, JLD2
+    using DataFrames, JLD
     using Base.Test
 
     # read network
