@@ -1,7 +1,7 @@
 module ColumnGeneration
 
     using TransitNetworks, NetworkDesignModels, Gurobi, JuMP
-    using DataFrames, JLD, JLD2
+    using DataFrames, JLD
     using Base.Test
 
     # read network
@@ -20,7 +20,7 @@ module ColumnGeneration
     # read stopclusters
     stopclusters = DataFrames.readtable("data/tidy/1-stopclusters.csv");
     stopclusters = Dict(zip(
-        stopclusters[:stop_id], stopclusters[:cluster_stop]
+        string.(stopclusters[:stop_id]), string.(stopclusters[:cluster_stop])
     ))
     for u in setdiff(unique(vcat(demand[:origin], demand[:destination])),
                      collect(keys(stopclusters)))
