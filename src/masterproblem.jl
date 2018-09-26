@@ -241,7 +241,7 @@ Solves `mp::MasterProblem` with the given `budget`.
 ### Returns
 The optimal solution `x` as a vector of floats.
 """
-function optimize(mp::MasterProblem, budget::Float64)
+function optimize(mp::MasterProblem, budget::Real)
     JuMP.fix(mp.budget, budget)
     JuMP.solve(mp.model)
     JuMP.getvalue(mp.x)
