@@ -1,8 +1,8 @@
 module ColumnGeneration
 
     using TransitNetworks, NetworkDesignModels, Gurobi, JuMP
-    using DataFrames, JLD
-    using Base.Test
+    using CSV, FileIO
+    using Test
 
     # read network
     np = load("data/processed/networks/9b-transitnetwork.jld2", "keynetwork")
@@ -11,14 +11,14 @@ module ColumnGeneration
     stnindex = Dict(zip(stns, 1:nstns));
     
     # read o-d demand
-    demand = DataFrames.readtable(
+    demand = CSV.read(
         "data/processed/odmatrices/odmatrices-output-bus-linelevel.csv"
     );
     demand[:origin]      = string.(demand[:origin])
     demand[:destination] = string.(demand[:destination])
 
     # read stopclusters
-    stopclusters = DataFrames.readtable("data/tidy/1-stopclusters.csv");
+    stopclusters = CSV.read("data/tidy/1-stopclusters.csv");
     stopclusters = Dict(zip(
         string.(stopclusters[:stop_id]), string.(stopclusters[:cluster_stop])
     ))
@@ -46,8 +46,8 @@ module ColumnGeneration
     end 
 
     # create odmatrix
-    demand = demand[findin(demand[:origin], stns),:];
-    demand = demand[findin(demand[:destination], stns),:];
+    demand = demand[findall((in)(stns), demand[:origin]),:];
+    demand = demand[findall((in)(stns), demand[:destination]),:];
     odmatrix = zeros(nstns, nstns);
     TransitNetworks.aggregateODdemand!(demand, stnindex, 0:23, odmatrix);
     odmatrix[odmatrix .< 10] = 0;

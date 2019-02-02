@@ -1,8 +1,8 @@
 module ColumnGeneration2
 
     using TransitNetworks, NetworkDesignModels, Gurobi, JuMP
-    using DataFrames
-    using Base.Test
+    using CSV, LinearAlgebra
+    using Test
 
     # read network
     pathfiles = [
@@ -11,9 +11,9 @@ module ColumnGeneration2
     segfiles = ["data/tidy/toy/0-stationpaths/segment$(k).csv" for k in 1:8]
     stns, paths = TransitNetworks.readstationpaths(pathfiles)
     segs, seglist = TransitNetworks.readsegmentpaths(segfiles)
-    latlngs = readtable("data/tidy/toy/1-stops.csv")
+    latlngs = CSV.read("data/tidy/toy/1-stops.csv")
     nstns = length(stns)
-    demand = 100*(ones(nstns,nstns) - eye(nstns))
+    demand = 100*(ones(nstns,nstns) - Matrix{Float64}(I,nstns,nstns))
 
     # construct network
     np = TransitNetworks.TransitNetworkProblem(paths, segs, latlngs, demand);
@@ -23,10 +23,8 @@ module ColumnGeneration2
         @test np.nstations == 16
         @test length(np.lines) == 8
         @test sum(np.odmatrix) == 24000
-        end 
-    rmp = nothing
-    primal_objs = nothing
-    dual_objs = nothing
+    end 
+
     @testset "Generating Columns" begin
         budget = sum(NetworkDesignModels.linecost(np,line,gridtype)
                      for line in np.lines)
@@ -70,10 +68,7 @@ module ColumnGeneration2
         @test isapprox(dual_objs[1], 12300.0)
         @test isapprox(dual_objs[2],  9100.0)
         @test isapprox(dual_objs[3],  5700.0)
-        #=for i in 1:3
-            # will fail now
-            @test isapprox(primal_objs[i+1], primal_objs[i] + dual_objs[i])
-        end=#
+
         @test isapprox(primal_objs[end], sum(np.odmatrix))
 
     end 

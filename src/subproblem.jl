@@ -42,9 +42,9 @@ function SubProblem(
         delta::Float64 = 1.0,
         maxlength::Int = 30 # maximum number of edges in a path
     )
-    const np = rmp.np
-    const nstns = np.nstations
-    const gridtype = rmp.gridtype
+    np = rmp.np
+    nstns = np.nstations
+    gridtype = rmp.gridtype
 
     # construct graph and ensure there are no cycles
     dists = Dict{Tuple{Int,Int},Float64}()
@@ -115,9 +115,9 @@ function SubProblemCP(
         traveltimes::Bool = false,
         detail::Bool = false
     )
-    const np = rmp.np
-    const nstns = np.nstations
-    const gridtype = rmp.gridtype
+    np = rmp.np
+    nstns = np.nstations
+    gridtype = rmp.gridtype
 
     # construct graph and ensure there are no cycles
     dists = Dict{Tuple{Int,Int},Float64}() 

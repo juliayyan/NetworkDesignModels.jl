@@ -13,10 +13,11 @@ A `(xfrstops_uw, xfrstops_wv)` tuple, where
     separated into vectors corresponding to active [1] and inactive [2] lines
 """
 function computexfrstns(rmp::MasterProblem, gridtype::Symbol)
-    const activelines = find(round.(JuMP.getvalue(rmp.x), 5))
-    const linelist = rmp.linelist
-    const nstns = rmp.np.nstations
-    const stnlines = [find(in(u, line) for line in linelist) for u in 1:nstns]
+    activelines = findall(x->x!=0, round.(JuMP.getvalue(rmp.x), 5))
+    linelist = rmp.linelist
+    nstns = rmp.np.nstations
+    stnlines = [findall(x->x!=0, [in(u, line) for line in linelist])
+                for u in 1:nstns]
     xfrstops_uw = Dict{Tuple{Int,Int},Vector{Vector{Int}}}()
     xfrstops_wv = Dict{Tuple{Int,Int},Vector{Vector{Int}}}()
     for u in 1:nstns, v in nonzerodests(rmp.np, u)

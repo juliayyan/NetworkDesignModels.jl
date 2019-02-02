@@ -11,7 +11,7 @@ function basemodel(
         maxlength::Int, # maximum number of edges in a path
         solver
     )
-    const nstns = np.nstations
+    nstns = np.nstations
     
     sp = JuMP.Model(solver=solver)
 
@@ -72,8 +72,8 @@ function transfermodel(
         xfrstops_uw,
         xfrstops_wv
     )
-    const nstns = np.nstations
-    const ncases = 4
+    nstns = np.nstations
+    ncases = 4
 
     # In the single-transfers model, srv2[u,v,i] corresponds to g[1+i][u,v].
     JuMP.@variable(sp, 0 <= srv2[u=1:nstns, v=nonzerodests(np,u),1:ncases] <= 1)
@@ -252,11 +252,11 @@ function generatecolumn(
     auxinfo[:nlazy]  = 0
     t0 = time()
 
-    const nstns = rmp.np.nstations
-    const dists = [
+    nstns = rmp.np.nstations
+    dists = [
         edgecost(rmp.np,u,v,rmp.gridtype) for u in 1:nstns, v in 1:nstns
     ]
-    const neighbors = [setdiff(find(dists[u,:] .< maxdist),u) for u in 1:nstns]
+    neighbors = [setdiff(find(dists[u,:] .< maxdist),u) for u in 1:nstns]
 
     p = JuMP.getdual(rmp.choseline)
     q = JuMP.getdual(rmp.bcon)
