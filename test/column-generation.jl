@@ -31,7 +31,6 @@ module ColumnGeneration
         @test nstns == 410
         @test length(np.lines) == 46
         @test sum(demand[:demand]) == 364189
-        @test nrow(demand) == 116798
     end 
 
     # cluster stops of odmatrix
@@ -42,7 +41,6 @@ module ColumnGeneration
     demand = demand[demand[:origin] .!= demand[:destination],:]
     @testset "Clustering Stations" begin
         @test sum(demand[:demand]) == 364124
-        @test nrow(demand) == 101758
     end 
 
     # create odmatrix
