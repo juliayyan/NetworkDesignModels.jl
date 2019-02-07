@@ -293,7 +293,7 @@ function generatecolumn(
                               q,
                               coeffs=coeffs,
                               trackingstatuses=trackingstatuses)
-        if round(JuMP.getobjectivevalue(sp.model),3) == round(oldobj,3)
+        if round(JuMP.getobjectivevalue(sp.model),digits=3) == round(oldobj,digits=3)
             break
         else
             auxinfo[:nlazy] += sp.auxinfo[:nlazy]
