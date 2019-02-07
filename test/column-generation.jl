@@ -48,7 +48,7 @@ demand = demand[findall((in)(stns), demand[:origin]),:];
 demand = demand[findall((in)(stns), demand[:destination]),:];
 odmatrix = zeros(nstns, nstns);
 TransitNetworks.aggregateODdemand!(demand, stnindex, 0:23, odmatrix);
-odmatrix[odmatrix .< 10] = 0;
+odmatrix[odmatrix .< 10] .= 0;
 np.odmatrix = odmatrix;
 @testset "Create O-D Matrix" begin
     @test sum(np.odmatrix) == 124285
