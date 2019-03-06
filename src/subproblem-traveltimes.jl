@@ -62,7 +62,7 @@ function insertionheuristic(
         totalcost += minimum(costs)
         that = candidates[findmin(costs)[2]]
         this = that
-        visited[findfirst(nodes .== that)] = true
+        visited[findfirst(nodes .== that)] .= true
     end
     totalcost
 end

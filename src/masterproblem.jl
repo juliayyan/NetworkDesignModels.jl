@@ -81,7 +81,7 @@ function mastermodel(
         solver,
         modeltype::Symbol
     )
-    const nlines = length(linelist)
+    nlines = length(linelist)
 
     rmp = JuMP.Model(solver=solver)
 

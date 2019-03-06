@@ -13,10 +13,11 @@ A `(xfrstops_uw, xfrstops_wv)` tuple, where
     separated into vectors corresponding to active [1] and inactive [2] lines
 """
 function computexfrstns(rmp::MasterProblem, gridtype::Symbol)
-    const activelines = find(round.(JuMP.getvalue(rmp.x), 5))
-    const linelist = rmp.linelist
-    const nstns = rmp.np.nstations
-    const stnlines = [find(in(u, line) for line in linelist) for u in 1:nstns]
+    activelines = findall(x->x!=0, round.(JuMP.getvalue(rmp.x), digits=5))
+    linelist = rmp.linelist
+    nstns = rmp.np.nstations
+    stnlines = [findall(x->x!=0, [in(u, line) for line in linelist])
+                for u in 1:nstns]
     xfrstops_uw = Dict{Tuple{Int,Int},Vector{Vector{Int}}}()
     xfrstops_wv = Dict{Tuple{Int,Int},Vector{Vector{Int}}}()
     for u in 1:nstns, v in nonzerodests(rmp.np, u)
@@ -69,8 +70,8 @@ A vector of ints corresponding to stations along the path.
 function getpath(sp::SubProblem)
     if round(JuMP.getobjectivevalue(sp.model)) > 0
         visited = falses(sp.np.nstations)
-        source_val = findfirst(round.(JuMP.getvalue(sp.src)))
-        sink_val = findfirst(round.(JuMP.getvalue(sp.snk)))
+        source_val = findfirst(round.(JuMP.getvalue(sp.src)) .> 0.1)
+        sink_val = findfirst(round.(JuMP.getvalue(sp.snk)) .> 0.1)
         return getpath(
             source_val, source_val, sink_val, sp.edg, visited, sp.outneighbors
         )
