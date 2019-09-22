@@ -155,7 +155,7 @@ function SubProblemCP(
 
     function removecycles(cb)
         visited = falses(np.nstations) # whether a node has been visited
-        visited[setdiff(1:np.nstations, find(JuMP.getvalue(ingraph)))] = true
+        visited[setdiff(1:np.nstations, findall(JuMP.getvalue(ingraph) .> 0))] .= true
         source_val = findfirst(round.(JuMP.getvalue.(src)) .> 0.1)
         sink_val = findfirst(round.(JuMP.getvalue.(snk)) .> 0.1)
         @assert source_val > 0
@@ -164,7 +164,7 @@ function SubProblemCP(
         simplepath = getpath( # bus line
             source_val, source_val, sink_val, edg, visited, outneighbors
         )
-        while length(find(.!visited)) > 0 # search for subtours
+        while length(findall(.!visited)) > 0 # search for subtours
             cyclenodes = getpath(
                 findfirst(.!visited), source_val, sink_val, edg, visited,
                 outneighbors
