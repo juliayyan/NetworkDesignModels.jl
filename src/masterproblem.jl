@@ -61,7 +61,7 @@ function MasterProblem(
     @assert distparam >= 1.0
 
     commutelines = allcommutelines(np, nlegs, linelist, angleparam, distparam, gridtype)
-    costs = [linecost(np, line, gridtype) for line in linelist]
+    costs = Vector{Float64}([linecost(np, line, gridtype) for line in linelist])
     rmp, budget, x, θ, choseline, bcon, choseub, pair1, pair2 = mastermodel(
         np, linelist, commutelines, costs, solver, modeltype
     )
