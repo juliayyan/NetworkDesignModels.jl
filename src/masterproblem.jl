@@ -16,8 +16,7 @@ mutable struct MasterProblem
     choseline::JuMP.JuMPDict{JuMP.ConstraintRef}
     bcon::JuMP.ConstraintRef
     choseub::JuMP.JuMPDict{JuMP.ConstraintRef}
-    pair1
-    pair2
+    pair
     solver
     modeltype::Symbol
 end
@@ -62,13 +61,13 @@ function MasterProblem(
 
     commutelines = allcommutelines(np, nlegs, linelist, angleparam, distparam, gridtype)
     costs = Vector{Float64}([linecost(np, line, gridtype) for line in linelist])
-    rmp, budget, x, θ, choseline, bcon, choseub, pair1, pair2 = mastermodel(
+    rmp, budget, x, θ, choseline, bcon, choseub, pair = mastermodel(
         np, linelist, commutelines, costs, solver, modeltype
     )
     
     MasterProblem(
         np, linelist, commutelines, angleparam, distparam, costs, gridtype, rmp, budget,
-        x, θ, choseline, bcon, choseub, pair1, pair2, solver, modeltype
+        x, θ, choseline, bcon, choseub, pair, solver, modeltype
     )
 end
 
@@ -91,12 +90,25 @@ function mastermodel(
         JuMP.@variable(rmp, x[l=1:nlines], Bin)
     end
     if length(commutelines) == 2
-        pairs = unique(vcat(values(commutelines[2])...))
-        JuMP.@variable(rmp, aux[pairs])
-        JuMP.@constraint(rmp, pair1[p in pairs], aux[p] <= x[p[1]])
-        JuMP.@constraint(rmp, pair2[p in pairs], aux[p] <= x[p[2]])
+        neighborlines = [Vector{Int}() for l in 1:nlines]
+        linepairs = unique(vcat(values(commutelines[2])...))
+        for (l1, l2) in linepairs
+            push!(neighborlines[l1], l2)
+            push!(neighborlines[l2], l1)
+        end
+        if modeltype == :lp
+            JuMP.@variable(rmp, aux[linepairs] >= 0) # >= 0 is necessary
+            JuMP.@constraint(rmp, 
+                pair[l in 1:nlines],
+                sum(aux[(min(l,l2),max(l,l2))] for l2 in neighborlines[l]) <= x[l])    
+        elseif modeltype == :ip
+            JuMP.@variable(rmp, aux[linepairs])
+            JuMP.@constraint(rmp, pair1[p in linepairs], aux[p] <= x[p[1]])
+            JuMP.@constraint(rmp, pair2[p in linepairs], aux[p] <= x[p[2]])
+        end
+        pair = (pair1, pair2)
     else
-        pair1 = pair2 = nothing
+        pair = nothing
     end
     JuMP.@variable(rmp, budget)
     JuMP.@variable(rmp, θ[u=1:np.nstations,v=nonzerodests(np,u)])
@@ -121,7 +133,7 @@ function mastermodel(
     # budget constraint
     JuMP.@constraint(rmp, bcon, dot(costs, x) <= budget)
 
-    rmp, budget, x, θ, choseline, bcon, choseub, pair1, pair2
+    rmp, budget, x, θ, choseline, bcon, choseub, pair
 end 
 
 """
@@ -141,8 +153,8 @@ function addcolumn!(
     push!(rmp.costs, linecost(rmp.np, line,rmp.gridtype))
     initialbudget = JuMP.getvalue(rmp.budget)
 
-    rmp.model, rmp.budget, rmp.x, rmp.θ, rmp.choseline, rmp.bcon, rmp.choseub,
-        rmp.pair1, rmp.pair2 = mastermodel(
+    rmp.model, rmp.budget, rmp.x, rmp.θ, rmp.choseline, rmp.bcon, rmp.choseub, rmp.pair = 
+        mastermodel(
             rmp.np, rmp.linelist, rmp.commutelines, rmp.costs, rmp.solver,
             rmp.modeltype
         )
