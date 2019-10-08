@@ -90,22 +90,10 @@ function mastermodel(
         JuMP.@variable(rmp, x[l=1:nlines], Bin)
     end
     if length(commutelines) == 2
-        neighborlines = [Vector{Int}() for l in 1:nlines]
         linepairs = unique(vcat(values(commutelines[2])...))
-        for (l1, l2) in linepairs
-            push!(neighborlines[l1], l2)
-            push!(neighborlines[l2], l1)
-        end
-        if modeltype == :lp
-            JuMP.@variable(rmp, aux[linepairs] >= 0) # >= 0 is necessary
-            JuMP.@constraint(rmp, 
-                pair[l in 1:nlines],
-                sum(aux[(min(l,l2),max(l,l2))] for l2 in neighborlines[l]) <= x[l])    
-        elseif modeltype == :ip
-            JuMP.@variable(rmp, aux[linepairs])
-            JuMP.@constraint(rmp, pair1[p in linepairs], aux[p] <= x[p[1]])
-            JuMP.@constraint(rmp, pair2[p in linepairs], aux[p] <= x[p[2]])
-        end
+        JuMP.@variable(rmp, aux[linepairs] >= 0)
+        JuMP.@constraint(rmp, pair1[p in linepairs], aux[p] <= x[p[1]])
+        JuMP.@constraint(rmp, pair2[p in linepairs], aux[p] <= x[p[2]])
         pair = (pair1, pair2)
     else
         pair = nothing
