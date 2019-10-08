@@ -9,6 +9,7 @@ function basemodel(
         inneighbors::Vector{Vector{Int}},
         outneighbors::Vector{Vector{Int}},
         maxlength::Int, # maximum number of edges in a path
+        linelist::Vector{Vector{Int}},
         solver
     )
     nstns = np.nstations
@@ -46,6 +47,33 @@ function basemodel(
         [u=1:nstns, v=nonzerodests(np,u)], srv[u,v] <= ingraph[u]
         [u=1:nstns, v=nonzerodests(np,u)], srv[u,v] <= ingraph[v]
     end
+
+    # remove any lines that already exist
+    function removeduplicates(cb)
+        visited = falses(np.nstations) # whether a node has been visited
+        visited[setdiff(1:np.nstations, findall(JuMP.getvalue(ingraph) .> 0))] .= true
+        source_val = findfirst(round.(JuMP.getvalue.(src)) .> 0.1)
+        sink_val = findfirst(round.(JuMP.getvalue.(snk)) .> 0.1)
+        @assert source_val > 0
+        @assert sink_val > 0
+        @assert source_val != sink_val
+        simplepath = getpath( # bus line
+            source_val, source_val, sink_val, edg, visited, outneighbors
+        )
+        # cycles found
+        if round(JuMP.getvalue(sum(edg)), digits=3) > length(simplepath)
+            return
+        end
+        if linein(simplepath, linelist)
+            for pathelim in [simplepath, reverse(simplepath)]
+                inexpr = sum(edg[pathelim[k-1],pathelim[k]] for k in 2:length(pathelim))
+                npathedges = JuMP.getvalue(inexpr)
+                outexpr = (length(edg) - npathedges) - (sum(edg) - inexpr)
+                JuMP.@lazyconstraint(cb, inexpr + outexpr <= length(edg) - length(simplepath)/2)
+            end
+        end
+    end
+    JuMP.addlazycallback(sp, removeduplicates)
 
     sp, src, snk, edg, srv, ingraph
 end
@@ -187,11 +215,15 @@ function generatecolumn(
     JuMP.solve(sp.model)
     sp.auxinfo[:endtime] = time() - t0
 
-    path = getpath(sp) 
-    if ((length(path) > 0) &&
-        (round(sum(JuMP.getvalue(sp.edg))) != length(path) - 1))
-        error("Dual solution is not a valid path")
-    end 
+    if JuMP.getobjectivevalue(sp.model) > 0
+        path = getpath(sp) 
+        if ((length(path) > 0) &&
+            (round(sum(JuMP.getvalue(sp.edg))) != length(path) - 1))
+            error("Dual solution is not a valid path")
+        end
+    else
+        path = Vector{Int}()
+    end
 
     path
 end 

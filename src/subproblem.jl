@@ -72,7 +72,7 @@ function SubProblem(
     @assert !LightGraphs.is_cyclic(graph)
 
     sp, src, snk, edg, srv, ingraph = basemodel(
-        np, inneighbors, outneighbors, maxlength, solver
+        np, inneighbors, outneighbors, maxlength, rmp.linelist, solver
     )
 
     if nlegs == 2
@@ -139,7 +139,7 @@ function SubProblemCP(
     end
 
     sp, src, snk, edg, srv, ingraph = basemodel(
-        np, inneighbors, outneighbors, maxlength, solver
+        np, inneighbors, outneighbors, maxlength, rmp.linelist, solver
     )
     if nlegs == 2
         xfrstops_uw, xfrstops_wv = computexfrstns(rmp, gridtype)

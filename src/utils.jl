@@ -6,6 +6,11 @@ It ensures that `np.odmatrix[u,v] > 0`, and that `u` itself does not appear.
 nonzerodests(np::TN.TransitNetworkProblem, u::Int) =
     filter!(i -> i != u, findall(np.odmatrix[u,:] .> 0))
 
+"""
+Return the unique lines of `linelist`.
+
+It ensures that both a line and its reverse will not appear.
+"""
 function uniquelines(linelist::Vector{Vector{Int}})
     uniquelines = Vector{Int}[]
     for line in linelist
@@ -21,6 +26,11 @@ function uniquelines(linelist::Vector{Vector{Int}})
 
     uniquelines
 end
+
+"""
+Return whether `line` or its reversal appears in `linelist`.
+"""
+linein(line::Vector{Int}, linelist::Vector{Vector{Int}}) = in(line, linelist) || in(reverse(line), linelist)
 
 linecost(np::TN.TransitNetworkProblem, line::Vector{Int}, gridtype::Symbol) =
     sum(edgecost(np, line[i], line[i+1], gridtype) for i in 1:(length(line)-1))
