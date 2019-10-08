@@ -14,6 +14,7 @@ mutable struct MasterProblem
     x::Vector{JuMP.Variable}
     θ::JuMP.JuMPDict{JuMP.Variable}
     choseline::JuMP.JuMPDict{JuMP.ConstraintRef}
+    ccon::JuMP.JuMPArray{JuMP.ConstraintRef}
     bcon::JuMP.ConstraintRef
     choseub::JuMP.JuMPDict{JuMP.ConstraintRef}
     pair
@@ -61,13 +62,13 @@ function MasterProblem(
 
     commutelines = allcommutelines(np, nlegs, linelist, angleparam, distparam, gridtype)
     costs = Vector{Float64}([linecost(np, line, gridtype) for line in linelist])
-    rmp, budget, x, θ, choseline, bcon, choseub, pair = mastermodel(
+    rmp, budget, x, θ, choseline, ccon, bcon, choseub, pair = mastermodel(
         np, linelist, commutelines, costs, solver, modeltype
     )
     
     MasterProblem(
         np, linelist, commutelines, angleparam, distparam, costs, gridtype, rmp, budget,
-        x, θ, choseline, bcon, choseub, pair, solver, modeltype
+        x, θ, choseline, ccon, bcon, choseub, pair, solver, modeltype
     )
 end
 
@@ -118,10 +119,32 @@ function mastermodel(
         ((length(commutelines) == 1) || (length(commutelines[2][u,v]) == 0) ? 
             0 : sum(aux[pair] for pair in commutelines[2][u,v]))
     )
+    # capacity constraint
+    edgelines = Dict{Tuple{Int,Int},Vector{Int}}()
+    for l in 1:nlines, k in 2:length(linelist[l])
+        u = linelist[l][k-1]
+        v = linelist[l][k]
+        edg = (min(u,v), max(u,v))
+        if haskey(edgelines, edg)
+            push!(edgelines[edg], l)
+        else
+            edgelines[edg] = [l]
+        end
+    end
+    edges = keys(edgelines)
+    for edg in edges
+        if length(edgelines[edg]) == 1
+            delete!(edgelines, edg)
+        end
+    end
+    JuMP.@constraint(rmp, 
+        ccon[edg in keys(edgelines)], 
+        sum(x[l] for l in edgelines[edg]) <= 1)
+
     # budget constraint
     JuMP.@constraint(rmp, bcon, dot(costs, x) <= budget)
 
-    rmp, budget, x, θ, choseline, bcon, choseub, pair
+    rmp, budget, x, θ, choseline, ccon, bcon, choseub, pair
 end 
 
 """
@@ -141,7 +164,7 @@ function addcolumn!(
     push!(rmp.costs, linecost(rmp.np, line,rmp.gridtype))
     initialbudget = JuMP.getvalue(rmp.budget)
 
-    rmp.model, rmp.budget, rmp.x, rmp.θ, rmp.choseline, rmp.bcon, rmp.choseub, rmp.pair = 
+    rmp.model, rmp.budget, rmp.x, rmp.θ, rmp.choseline, rmp.ccon, rmp.bcon, rmp.choseub, rmp.pair = 
         mastermodel(
             rmp.np, rmp.linelist, rmp.commutelines, rmp.costs, rmp.solver,
             rmp.modeltype

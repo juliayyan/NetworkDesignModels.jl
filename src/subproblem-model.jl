@@ -170,12 +170,18 @@ A `path::Vector{Int}` of the stations along the profitable line.
 function generatecolumn(
         sp::SubProblem, 
         p,
-        q;
+        q,
+        cdual;
         trackingstatuses::Vector{Symbol} = Symbol[],
         trackingtimegrid::Int = 5,
         coeffs::Vector{Dict{Tuple{Int,Int},Float64}} = 
             fill(Dict(k => 0.5 for k in keys(p)),4)
     )
+    capexpr = 0
+    for key in keys(cdual)
+        (u,v) = key[1]
+        capexpr += cdual[(u,v)] * (sp.edg[u,v] + sp.edg[v,u])
+    end
     JuMP.@objective(sp.model,
         Max,
         sum(sum(p[u,v] * (sp.srv[u,v] + (sp.nlegs == 1 ? 0 :  
@@ -183,7 +189,8 @@ function generatecolumn(
             for v in nonzerodests(sp.np,u))
         for u in 1:sp.np.nstations) - 
         q * sum(sp.dists[u,v]*sp.edg[u,v]
-            for u in 1:sp.np.nstations, v in sp.outneighbors[u])
+            for u in 1:sp.np.nstations, v in sp.outneighbors[u]) - 
+        capexpr
     )
 
     t0 = time()
