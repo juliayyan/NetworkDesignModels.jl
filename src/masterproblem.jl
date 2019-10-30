@@ -15,6 +15,7 @@ mutable struct MasterProblem
     x::Vector{JuMP.Variable}
     θ::JuMP.JuMPDict{JuMP.Variable}
     choseline::JuMP.JuMPDict{JuMP.ConstraintRef}
+    freq1::JuMP.JuMPDict{JuMP.ConstraintRef}
     ccon::JuMP.JuMPArray{JuMP.ConstraintRef}
     bcon::JuMP.ConstraintRef
     choseub::JuMP.JuMPDict{JuMP.ConstraintRef}
@@ -65,13 +66,13 @@ function MasterProblem(
     commutelines = allcommutelines(np, nlegs, linelist, angleparam, distparam, gridtype)
     xfrstns = allxfrstations(np, nlegs, angleparam, distparam, gridtype, xfrset = xfrset)
     costs = Vector{Float64}([linecost(np, line, gridtype) for line in linelist])
-    rmp, budget, x, θ, choseline, ccon, bcon, choseub, pair = mastermodel(
+    rmp, budget, x, θ, choseline, freq1, ccon, bcon, choseub, pair = mastermodel(
         np, linelist, commutelines, xfrstns, costs, solver, modeltype
     )
     
     MasterProblem(
         np, linelist, commutelines, xfrstns, angleparam, distparam, costs, gridtype, rmp, budget,
-        x, θ, choseline, ccon, bcon, choseub, pair, solver, modeltype
+        x, θ, choseline, freq1, ccon, bcon, choseub, pair, solver, modeltype
     )
 end
 
@@ -165,7 +166,7 @@ function mastermodel(
     # budget constraint
     JuMP.@constraint(rmp, bcon, dot(costs, x) <= budget)
 
-    rmp, budget, x, θ, choseline, ccon, bcon, choseub, pair
+    rmp, budget, x, θ, choseline, freq1, ccon, bcon, choseub, pair
 end 
 
 """
@@ -185,7 +186,7 @@ function addcolumn!(
     push!(rmp.costs, linecost(rmp.np, line,rmp.gridtype))
     initialbudget = JuMP.getvalue(rmp.budget)
 
-    rmp.model, rmp.budget, rmp.x, rmp.θ, rmp.choseline, rmp.ccon, rmp.bcon, rmp.choseub, rmp.pair = 
+    rmp.model, rmp.budget, rmp.x, rmp.θ, rmp.choseline, rmp.freq1, rmp.ccon, rmp.bcon, rmp.choseub, rmp.pair = 
         mastermodel(
             rmp.np, rmp.linelist, rmp.commutelines, rmp.costs, rmp.solver,
             rmp.modeltype
