@@ -3,6 +3,7 @@ mutable struct MasterProblem
     np::TN.TransitNetworkProblem
     linelist::Vector{Vector{Int}}
     commutelines::Vector{Dict{Tuple{Int,Int},Any}}
+    xfrstns::Dict{Tuple{Int,Int},Vector{Int}}
     angleparam::Float64
     distparam::Float64
     costs::Vector{Float64}
@@ -49,6 +50,7 @@ function MasterProblem(
         np::TN.TransitNetworkProblem;
         gridtype::Symbol = :latlong,
         linelist::Vector{Vector{Int}} = uniquelines(np.lines),
+        xfrset::Vector{Int} = Vector{Int}(1:np.nstations),
         nlegs::Int = 1,
         angleparam::Float64 = -1.0, # deprecated by default
         distparam::Float64 = 1.5,
@@ -61,13 +63,14 @@ function MasterProblem(
     @assert distparam >= 1.0
 
     commutelines = allcommutelines(np, nlegs, linelist, angleparam, distparam, gridtype)
+    xfrstns = allxfrstations(np, nlegs, angleparam, distparam, gridtype, xfrset = xfrset)
     costs = Vector{Float64}([linecost(np, line, gridtype) for line in linelist])
     rmp, budget, x, θ, choseline, ccon, bcon, choseub, pair = mastermodel(
-        np, linelist, commutelines, costs, solver, modeltype
+        np, linelist, commutelines, xfrstns, costs, solver, modeltype
     )
     
     MasterProblem(
-        np, linelist, commutelines, angleparam, distparam, costs, gridtype, rmp, budget,
+        np, linelist, commutelines, xfrstns, angleparam, distparam, costs, gridtype, rmp, budget,
         x, θ, choseline, ccon, bcon, choseub, pair, solver, modeltype
     )
 end
@@ -77,6 +80,7 @@ function mastermodel(
         np::TN.TransitNetworkProblem,
         linelist::Vector{Vector{Int}},
         commutelines::Vector{Dict{Tuple{Int,Int},Any}},
+        xfrstns::Dict{Tuple{Int,Int},Vector{Int}},
         costs::Vector{Float64},
         solver,
         modeltype::Symbol
@@ -91,11 +95,13 @@ function mastermodel(
         JuMP.@variable(rmp, x[l=1:nlines], Bin)
     end
     if length(commutelines) == 2
-        linepairs = unique(vcat(values(commutelines[2])...))
-        JuMP.@variable(rmp, aux[linepairs] >= 0)
-        JuMP.@constraint(rmp, pair1[p in linepairs], aux[p] <= x[p[1]])
-        JuMP.@constraint(rmp, pair2[p in linepairs], aux[p] <= x[p[2]])
-        pair = (pair1, pair2)
+        JuMP.@variable(rmp, oneline[u=1:np.nstations,v=nonzerodests(np,u)])
+        JuMP.@variable(rmp, twoline[
+            u=1:np.nstations,
+            v=nonzerodests(np,u),
+            w=xfrstns[u,v]    
+        ])
+        pair = (oneline, twoline)
     else
         pair = nothing
     end
@@ -113,12 +119,27 @@ function mastermodel(
         choseub[u=1:np.nstations, v=nonzerodests(np,u)],
         θ[u,v] <= 1
     )
-    JuMP.@constraint(rmp,
-        choseline[u=1:np.nstations, v=nonzerodests(np,u)],
-        θ[u,v] <= sum(x[l] for l in commutelines[1][u,v]) +
-        ((length(commutelines) == 1) || (length(commutelines[2][u,v]) == 0) ? 
-            0 : sum(aux[pair] for pair in commutelines[2][u,v]))
-    )
+    if length(commutelines) == 1
+        JuMP.@constraint(rmp,
+            choseline[u=1:np.nstations, v=nonzerodests(np,u)],
+            θ[u,v] <= sum(x[l] for l in commutelines[1][u,v])
+        )
+    else 
+        JuMP.@constraint(rmp,
+            choseline[u=1:np.nstations, v=nonzerodests(np,u)],
+            θ[u,v] <= oneline[u,v] + sum(twoline[u,v,w] for w in xfrstns[u,v])
+        )
+        JuMP.@constraint(rmp,
+            freq1[u=1:np.nstations, v=nonzerodests(np,u)],
+            oneline[u,v] <= sum(x[l] for l in commutelines[1][u,v])
+        )
+        JuMP.@constraint(rmp,
+            freq2a[u=1:np.nstations, v=nonzerodests(np,u), w=xfrstns[u,v]],
+            twoline[u,v,w] <= oneline[u,w])
+        JuMP.@constraint(rmp,
+            freq2b[u=1:np.nstations, v=nonzerodests(np,u), w=xfrstns[u,v]],
+            twoline[u,v,w] <= oneline[w,v])
+    end
     # capacity constraint
     edgelines = Dict{Tuple{Int,Int},Vector{Int}}()
     for l in 1:nlines, k in 2:length(linelist[l])
@@ -196,9 +217,9 @@ function allcommutelines(
     # 1. Initialize each (u,v) entry as an empty vector.
     for u in 1:np.nstations, v in nonzerodests(np,u)
         commutelines[1][u,v] = Int[]
-        if nlegs == 2
+        #=if nlegs == 2
             commutelines[2][u,v] = Tuple{Int,Int}[]
-        end
+        end=#
     end
     # 2. Populate the (u,v) entries in commutelines.
     # 
@@ -233,7 +254,7 @@ function addline!(
         in(v, nonzerodests(np, u)) && push!(commutelines[1][u,v], l1)
     end
     # Two-leg commutes
-    if length(commutelines) == 2
+    #=if length(commutelines) == 2
         for l2 in 1:length(oldlines)
             line2 = oldlines[l2]
             xfrstns = intersect(line, line2)
@@ -253,9 +274,36 @@ function addline!(
                 end
             end
         end
-    end
+    end=#
     # We update oldlines at the end to avoid conflicts with the earlier updates.
     push!(oldlines, line)
+end
+
+"""
+Compute valid transfer stations for each commute.
+"""
+function allxfrstations(
+        np::TN.TransitNetworkProblem,
+        nlegs::Int,
+        angleparam::Float64,
+        distparam::Float64,
+        gridtype::Symbol;
+        xfrset::Vector{Int} = Vector{Int}(1:np.nstations)
+    )
+    xfrstns = Dict{Tuple{Int,Int}, Vector{Int}}()
+    if nlegs == 1
+        return xfrstns
+    end
+    nstns = np.nstations
+    for u in 1:nstns, v in nonzerodests(np, u)
+        xfrstns[u,v] = Vector{Int}()
+        for w in xfrset
+            if validtransfer(np, u, v, w, angleparam, distparam, gridtype)
+                push!(xfrstns[u,v], w)
+            end
+        end
+    end
+    xfrstns
 end
 
 """
