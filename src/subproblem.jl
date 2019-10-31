@@ -75,14 +75,14 @@ function SubProblem(
         np, inneighbors, outneighbors, maxlength, rmp.linelist, solver
     )
 
-    if nlegs == 2
+    #=if nlegs == 2
         xfrstops_uw, xfrstops_wv = computexfrstns(rmp, gridtype)
         srv2 = transfermodel(
             np, sp, srv, ingraph, xfrstops_uw, xfrstops_wv
         )
-    else
+    else=#
         srv2 = xfrstops_uw = xfrstops_wv = nothing
-    end
+    # end
 
     SubProblem(
         np, sp, src, snk, edg, ingraph, srv, srv2, xfrstops_uw, xfrstops_wv,
@@ -141,14 +141,14 @@ function SubProblemCP(
     sp, src, snk, edg, srv, ingraph = basemodel(
         np, inneighbors, outneighbors, maxlength, rmp.linelist, solver
     )
-    if nlegs == 2
+    #=if nlegs == 2
         xfrstops_uw, xfrstops_wv = computexfrstns(rmp, gridtype)
         srv2 = transfermodel(
             np, sp, srv, ingraph, xfrstops_uw, xfrstops_wv
         )
-    else
+    else=#
         srv2 = xfrstops_uw = xfrstops_wv = nothing
-    end
+    # end
 
     auxinfo = Dict{Symbol,Any}()
     auxinfo[:nlazy] = 0

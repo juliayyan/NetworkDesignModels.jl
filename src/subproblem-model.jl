@@ -65,6 +65,7 @@ function basemodel(
             return
         end
         if linein(simplepath, linelist)
+            println("DUPLICATE LINE GENERATED")
             for pathelim in [simplepath, reverse(simplepath)]
                 inexpr = sum(edg[pathelim[k-1],pathelim[k]] for k in 2:length(pathelim))
                 npathedges = JuMP.getvalue(inexpr)
@@ -73,7 +74,7 @@ function basemodel(
             end
         end
     end
-    JuMP.addlazycallback(sp, removeduplicates)
+    # JuMP.addlazycallback(sp, removeduplicates)
 
     sp, src, snk, edg, srv, ingraph
 end
@@ -173,9 +174,7 @@ function generatecolumn(
         q,
         cdual;
         trackingstatuses::Vector{Symbol} = Symbol[],
-        trackingtimegrid::Int = 5,
-        coeffs::Vector{Dict{Tuple{Int,Int},Float64}} = 
-            fill(Dict(k => 0.5 for k in keys(p)),4)
+        trackingtimegrid::Int = 5
     )
     capexpr = 0
     for key in keys(cdual)
@@ -184,8 +183,7 @@ function generatecolumn(
     end
     JuMP.@objective(sp.model,
         Max,
-        sum(sum(p[u,v] * (sp.srv[u,v] + (sp.nlegs == 1 ? 0 :  
-                                         sum(coeffs[i][u,v]*sp.srv2[u,v,i] for i in 1:4)))
+        sum(sum(p[u,v] * sp.srv[u,v]
             for v in nonzerodests(sp.np,u))
         for u in 1:sp.np.nstations) - 
         q * sum(sp.dists[u,v]*sp.edg[u,v]

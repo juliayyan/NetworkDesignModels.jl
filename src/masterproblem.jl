@@ -15,7 +15,7 @@ mutable struct MasterProblem
     x::Vector{JuMP.Variable}
     θ::JuMP.JuMPDict{JuMP.Variable}
     choseline::JuMP.JuMPDict{JuMP.ConstraintRef}
-    freq1::JuMP.JuMPDict{JuMP.ConstraintRef}
+    freq1
     ccon::JuMP.JuMPArray{JuMP.ConstraintRef}
     bcon::JuMP.ConstraintRef
     choseub::JuMP.JuMPDict{JuMP.ConstraintRef}
@@ -101,6 +101,7 @@ function mastermodel(
             u=1:np.nstations,
             v=nonzerodests(np,u),
             w=xfrstns[u,v]    
+            w=xfrstns[u,v]   
         ])
         pair = (oneline, twoline)
     else
@@ -125,6 +126,7 @@ function mastermodel(
             choseline[u=1:np.nstations, v=nonzerodests(np,u)],
             θ[u,v] <= sum(x[l] for l in commutelines[1][u,v])
         )
+        freq1 = nothing
     else 
         JuMP.@constraint(rmp,
             choseline[u=1:np.nstations, v=nonzerodests(np,u)],
@@ -188,7 +190,7 @@ function addcolumn!(
 
     rmp.model, rmp.budget, rmp.x, rmp.θ, rmp.choseline, rmp.freq1, rmp.ccon, rmp.bcon, rmp.choseub, rmp.pair = 
         mastermodel(
-            rmp.np, rmp.linelist, rmp.commutelines, rmp.costs, rmp.solver,
+            rmp.np, rmp.linelist, rmp.commutelines, rmp.xfrstns, rmp.costs, rmp.solver,
             rmp.modeltype
         )
     JuMP.fix(rmp.budget, initialbudget)
