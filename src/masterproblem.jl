@@ -100,8 +100,7 @@ function mastermodel(
         JuMP.@variable(rmp, twoline[
             u=1:np.nstations,
             v=nonzerodests(np,u),
-            w=xfrstns[u,v]    
-            w=xfrstns[u,v]   
+            w=xfrstns[u,v] 
         ])
         pair = (oneline, twoline)
     else
