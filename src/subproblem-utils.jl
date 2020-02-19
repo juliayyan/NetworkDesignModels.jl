@@ -1,3 +1,4 @@
+#=
 """
 Computes all potential transfer stations between commutes (u,v).
 
@@ -54,6 +55,7 @@ function computexfrstns(rmp::MasterProblem, gridtype::Symbol)
     end
     xfrstops_uw, xfrstops_wv
 end
+=#
 
 """
 Returns path from source to sink.

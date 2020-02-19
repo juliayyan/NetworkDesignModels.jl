@@ -58,7 +58,7 @@ function MasterProblem(
     @assert distparam >= 1.0
 
     commutelines = allcommutelines(np, nlegs, linelist, angleparam, distparam, gridtype)
-    xfrstns = allxfrstations(np, nlegs, angleparam, distparam, gridtype, xfrset = xfrset)
+    xfrstns = computexfrstns(np, nlegs, angleparam, distparam, gridtype, xfrset = xfrset)
     costs = Vector{Float64}([linecost(np, line, gridtype) for line in linelist])
     rmp, budget, x, θ = mastermodel(
         np, linelist, commutelines, xfrstns, costs, solver, modeltype
@@ -268,7 +268,7 @@ end
 """
 Compute valid transfer stations for each commute.
 """
-function allxfrstations(
+function computexfrstns(
         np::TN.TransitNetworkProblem,
         nlegs::Int,
         angleparam::Float64,
