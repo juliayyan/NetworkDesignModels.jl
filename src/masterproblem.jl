@@ -16,7 +16,7 @@ mutable struct MasterProblem
     θ::JuMP.JuMPDict{JuMP.Variable}
     choseline::JuMP.JuMPDict{JuMP.ConstraintRef}
     freq1
-    ccon::JuMP.JuMPArray{JuMP.ConstraintRef}
+    ccon# ::JuMP.JuMPArray{JuMP.ConstraintRef}
     bcon::JuMP.ConstraintRef
     choseub::JuMP.JuMPDict{JuMP.ConstraintRef}
     pair
@@ -160,9 +160,10 @@ function mastermodel(
             delete!(edgelines, edg)
         end
     end
-    JuMP.@constraint(rmp, 
+    #=JuMP.@constraint(rmp, 
         ccon[edg in keys(edgelines)], 
-        sum(x[l] for l in edgelines[edg]) <= 1)
+        sum(x[l] for l in edgelines[edg]) <= 1)=#
+    ccon = nothing
 
     # budget constraint
     JuMP.@constraint(rmp, bcon, dot(costs, x) <= budget)

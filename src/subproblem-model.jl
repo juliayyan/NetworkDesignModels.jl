@@ -49,7 +49,7 @@ function basemodel(
     end
 
     # remove any lines that already exist
-    function removeduplicates(cb)
+    #=function removeduplicates(cb)
         visited = falses(np.nstations) # whether a node has been visited
         visited[setdiff(1:np.nstations, findall(JuMP.getvalue(ingraph) .> 0))] .= true
         source_val = findfirst(round.(JuMP.getvalue.(src)) .> 0.1)
@@ -73,12 +73,13 @@ function basemodel(
                 JuMP.@lazyconstraint(cb, inexpr + outexpr <= length(edg) - length(simplepath)/2)
             end
         end
-    end
+    end=#
     # JuMP.addlazycallback(sp, removeduplicates)
 
     sp, src, snk, edg, srv, ingraph
 end
 
+#=
 """
 Adds transferring variables and constraints to subproblem model `sp`.
 
@@ -130,7 +131,9 @@ function transfermodel(
 
     srv2
 end
+=#
 
+#=
 """
 Returns a vector of dictionaries `coeffs` for the subproblem objective function.
 
@@ -153,7 +156,7 @@ function spcoeffs(
     end
     
     coeffs
-end
+end=#
 
 """
 Uses dual values `p` and `q` to generate a profitable line.
@@ -177,18 +180,17 @@ function generatecolumn(
         trackingtimegrid::Int = 5
     )
     capexpr = 0
-    for key in keys(cdual)
+    #=for key in keys(cdual)
         (u,v) = key[1]
         capexpr += cdual[(u,v)] * (sp.edg[u,v] + sp.edg[v,u])
-    end
+    end=#
     JuMP.@objective(sp.model,
         Max,
         sum(sum(p[u,v] * sp.srv[u,v]
             for v in nonzerodests(sp.np,u))
         for u in 1:sp.np.nstations) - 
         q * sum(sp.dists[u,v]*sp.edg[u,v]
-            for u in 1:sp.np.nstations, v in sp.outneighbors[u]) - 
-        capexpr
+            for u in 1:sp.np.nstations, v in sp.outneighbors[u]) # - capexpr
     )
 
     t0 = time()
