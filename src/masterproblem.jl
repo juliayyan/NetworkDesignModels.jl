@@ -14,12 +14,6 @@ mutable struct MasterProblem
     budget::JuMP.Variable
     x::Vector{JuMP.Variable}
     θ::JuMP.JuMPDict{JuMP.Variable}
-    choseline::JuMP.JuMPDict{JuMP.ConstraintRef}
-    freq1
-    ccon# ::JuMP.JuMPArray{JuMP.ConstraintRef}
-    bcon::JuMP.ConstraintRef
-    choseub::JuMP.JuMPDict{JuMP.ConstraintRef}
-    pair
     solver
     modeltype::Symbol
 end
@@ -66,13 +60,13 @@ function MasterProblem(
     commutelines = allcommutelines(np, nlegs, linelist, angleparam, distparam, gridtype)
     xfrstns = allxfrstations(np, nlegs, angleparam, distparam, gridtype, xfrset = xfrset)
     costs = Vector{Float64}([linecost(np, line, gridtype) for line in linelist])
-    rmp, budget, x, θ, choseline, freq1, ccon, bcon, choseub, pair = mastermodel(
+    rmp, budget, x, θ = mastermodel(
         np, linelist, commutelines, xfrstns, costs, solver, modeltype
     )
     
     MasterProblem(
-        np, linelist, commutelines, xfrstns, angleparam, distparam, costs, gridtype, rmp, budget,
-        x, θ, choseline, freq1, ccon, bcon, choseub, pair, solver, modeltype
+        np, linelist, commutelines, xfrstns, angleparam, distparam, costs, gridtype, 
+        rmp, budget, x, θ, solver, modeltype
     )
 end
 
@@ -96,15 +90,11 @@ function mastermodel(
         JuMP.@variable(rmp, x[l=1:nlines], Bin)
     end
     if length(commutelines) == 2
-        JuMP.@variable(rmp, oneline[u=1:np.nstations,v=nonzerodests(np,u)])
         JuMP.@variable(rmp, twoline[
             u=1:np.nstations,
             v=nonzerodests(np,u),
             w=xfrstns[u,v] 
         ])
-        pair = (oneline, twoline)
-    else
-        pair = nothing
     end
     JuMP.@variable(rmp, budget)
     JuMP.@variable(rmp, θ[u=1:np.nstations,v=nonzerodests(np,u)])
@@ -125,25 +115,19 @@ function mastermodel(
             choseline[u=1:np.nstations, v=nonzerodests(np,u)],
             θ[u,v] <= sum(x[l] for l in commutelines[1][u,v])
         )
-        freq1 = nothing
     else 
         JuMP.@constraint(rmp,
             choseline[u=1:np.nstations, v=nonzerodests(np,u)],
-            θ[u,v] <= oneline[u,v] + sum(twoline[u,v,w] for w in xfrstns[u,v])
-        )
-        JuMP.@constraint(rmp,
-            freq1[u=1:np.nstations, v=nonzerodests(np,u)],
-            oneline[u,v] <= sum(x[l] for l in commutelines[1][u,v])
-        )
+            θ[u,v] <= sum(x[l] for l in commutelines[1][u,v]) + sum(twoline[u,v,w] for w in xfrstns[u,v]))
         JuMP.@constraint(rmp,
             freq2a[u=1:np.nstations, v=nonzerodests(np,u), w=xfrstns[u,v]],
-            twoline[u,v,w] <= oneline[u,w])
+            twoline[u,v,w] <= sum(x[l] for l in setdiff(commutelines[1][u,w], commutelines[1][u,v])))
         JuMP.@constraint(rmp,
             freq2b[u=1:np.nstations, v=nonzerodests(np,u), w=xfrstns[u,v]],
-            twoline[u,v,w] <= oneline[w,v])
+            twoline[u,v,w] <= sum(x[l] for l in setdiff(commutelines[1][w,v], commutelines[1][u,v])))
     end
     # capacity constraint
-    edgelines = Dict{Tuple{Int,Int},Vector{Int}}()
+    #=edgelines = Dict{Tuple{Int,Int},Vector{Int}}()
     for l in 1:nlines, k in 2:length(linelist[l])
         u = linelist[l][k-1]
         v = linelist[l][k]
@@ -160,15 +144,14 @@ function mastermodel(
             delete!(edgelines, edg)
         end
     end
-    #=JuMP.@constraint(rmp, 
+    JuMP.@constraint(rmp, 
         ccon[edg in keys(edgelines)], 
         sum(x[l] for l in edgelines[edg]) <= 1)=#
-    ccon = nothing
-
+    
     # budget constraint
     JuMP.@constraint(rmp, bcon, dot(costs, x) <= budget)
 
-    rmp, budget, x, θ, choseline, freq1, ccon, bcon, choseub, pair
+    rmp, budget, x, θ
 end 
 
 """
@@ -188,7 +171,7 @@ function addcolumn!(
     push!(rmp.costs, linecost(rmp.np, line,rmp.gridtype))
     initialbudget = JuMP.getvalue(rmp.budget)
 
-    rmp.model, rmp.budget, rmp.x, rmp.θ, rmp.choseline, rmp.freq1, rmp.ccon, rmp.bcon, rmp.choseub, rmp.pair = 
+    rmp.model, rmp.budget, rmp.x, rmp.θ = 
         mastermodel(
             rmp.np, rmp.linelist, rmp.commutelines, rmp.xfrstns, rmp.costs, rmp.solver,
             rmp.modeltype

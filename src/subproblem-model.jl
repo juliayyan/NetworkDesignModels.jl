@@ -174,13 +174,12 @@ A `path::Vector{Int}` of the stations along the profitable line.
 function generatecolumn(
         sp::SubProblem, 
         p,
-        q,
-        cdual;
+        q;
         trackingstatuses::Vector{Symbol} = Symbol[],
         trackingtimegrid::Int = 5
     )
-    capexpr = 0
-    #=for key in keys(cdual)
+    #=capexpr = 0
+    for key in keys(cdual)
         (u,v) = key[1]
         capexpr += cdual[(u,v)] * (sp.edg[u,v] + sp.edg[v,u])
     end=#
@@ -297,8 +296,8 @@ function generatecolumn(
     ]
     neighbors = [setdiff(find(dists[u,:] .< maxdist),u) for u in 1:nstns]
 
-    p = JuMP.getdual(rmp.choseline)
-    q = JuMP.getdual(rmp.bcon)
+    p = JuMP.getdual(rmp.model[:choseline])
+    q = JuMP.getdual(rmp.model[:bcon])
     # s = JuMP.getdual(rmp.choseub)
 
     # compute warm start
