@@ -20,7 +20,7 @@ function basemodel(
         src[u=1:nstns], Bin
         snk[u=1:nstns], Bin
         edg[u=1:nstns, v=outneighbors[u]], Bin
-        0 <= srv[u=1:nstns, v=nonzerodests(np,u)] <= 1
+        0 <= srv[(u,v)=commutes(np)] <= 1
     end
     
     # path constraints
@@ -44,8 +44,8 @@ function basemodel(
         ingraph[u=1:nstns],
         src[u] + sum(edg[u2,u] for u2 in inneighbors[u]))
     JuMP.@constraints sp begin
-        [u=1:nstns, v=nonzerodests(np,u)], srv[u,v] <= ingraph[u]
-        [u=1:nstns, v=nonzerodests(np,u)], srv[u,v] <= ingraph[v]
+        [(u,v)=commutes(np)], srv[(u,v)] <= ingraph[u]
+        [(u,v)=commutes(np)], srv[(u,v)] <= ingraph[v]
     end
 
     # remove any lines that already exist
@@ -185,9 +185,7 @@ function generatecolumn(
     end=#
     JuMP.@objective(sp.model,
         Max,
-        sum(sum(p[u,v] * sp.srv[u,v]
-            for v in nonzerodests(sp.np,u))
-        for u in 1:sp.np.nstations) - 
+        sum(p[(u,v)] * sp.srv[(u,v)] for (u,v) in commutes(sp.np)) - 
         q * sum(sp.dists[u,v]*sp.edg[u,v]
             for u in 1:sp.np.nstations, v in sp.outneighbors[u]) # - capexpr
     )

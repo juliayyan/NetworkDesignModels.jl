@@ -5,7 +5,7 @@ mutable struct SubProblem
     snk::Vector{JuMP.Variable}
     edg::JuMP.JuMPDict{JuMP.Variable}
     ingraph
-    srv::JuMP.JuMPDict{JuMP.Variable}
+    srv::JuMP.JuMPArray
     srv2
     dists::Dict{Tuple{Int,Int},Float64}
     outneighbors::Vector{Vector{Int}}

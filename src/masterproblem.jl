@@ -13,7 +13,7 @@ mutable struct MasterProblem
     model::JuMP.Model
     budget::JuMP.Variable
     x::Vector{JuMP.Variable}
-    θ::JuMP.JuMPDict{JuMP.Variable}
+    θ::JuMP.JuMPArray
     solver
     modeltype::Symbol
 end
@@ -91,41 +91,40 @@ function mastermodel(
     end
     if length(commutelines) == 2
         JuMP.@variable(rmp, twoline[
-            u=1:np.nstations,
-            v=nonzerodests(np,u),
-            w=xfrstns[u,v] 
+            (u,v)=commutes(np),
+            w=xfrstns[(u,v)] 
         ])
     end
     JuMP.@variable(rmp, budget)
-    JuMP.@variable(rmp, θ[u=1:np.nstations,v=nonzerodests(np,u)])
+    JuMP.@variable(rmp, θ[(u,v)=commutes(np)])
     
     # maximize ridership
     JuMP.@objective(rmp, 
         Max, 
-        sum(sum(np.odmatrix[u,v]*θ[u,v] for v in nonzerodests(np,u)) 
-                                        for u in 1:np.nstations)
+        sum(demand(np,(u,v))*θ[(u,v)] for (u,v) in commutes(np))
     )
     # choice constraints
     JuMP.@constraint(rmp,
-        choseub[u=1:np.nstations, v=nonzerodests(np,u)],
-        θ[u,v] <= 1
+        choseub[(u,v)=commutes(np)],
+        θ[(u,v)] <= 1
     )
     if length(commutelines) == 1
         JuMP.@constraint(rmp,
-            choseline[u=1:np.nstations, v=nonzerodests(np,u)],
-            θ[u,v] <= sum(x[l] for l in commutelines[1][u,v])
+            choseline[(u,v)=commutes(np)],
+            θ[(u,v)] <= sum(x[l] for l in commutelines[1][u,v])
         )
     else 
         JuMP.@constraint(rmp,
-            choseline[u=1:np.nstations, v=nonzerodests(np,u)],
-            θ[u,v] <= sum(x[l] for l in commutelines[1][u,v]) + sum(twoline[u,v,w] for w in xfrstns[u,v]))
+            choseline[(u,v)=commutes(np)],
+            θ[(u,v)] <= sum(x[l] for l in commutelines[1][u,v]) + sum(twoline[(u,v),w] for w in xfrstns[(u,v)]))
         JuMP.@constraint(rmp,
-            freq2a[u=1:np.nstations, v=nonzerodests(np,u), w=xfrstns[u,v]],
-            twoline[u,v,w] <= sum(x[l] for l in setdiff(commutelines[1][u,w], commutelines[1][u,v])))
+            freq2a[(u,v)=commutes(np), w=xfrstns[(u,v)]],
+            twoline[(u,v),w] <= sum(x[l] for l in setdiff(commutelines[1][u,w], commutelines[1][u,v])))
         JuMP.@constraint(rmp,
-            freq2b[u=1:np.nstations, v=nonzerodests(np,u), w=xfrstns[u,v]],
-            twoline[u,v,w] <= sum(x[l] for l in setdiff(commutelines[1][w,v], commutelines[1][u,v])))
+            freq2b[(u,v)=commutes(np), w=xfrstns[(u,v)]],
+            twoline[(u,v),w] <= sum(x[l] for l in setdiff(commutelines[1][w,v], commutelines[1][u,v])))
     end
+    
     # capacity constraint
     #=edgelines = Dict{Tuple{Int,Int},Vector{Int}}()
     for l in 1:nlines, k in 2:length(linelist[l])
@@ -201,7 +200,7 @@ function allcommutelines(
 
     commutelines = [Dict{Tuple{Int,Int},Any}() for i in 1:nlegs]
     # 1. Initialize each (u,v) entry as an empty vector.
-    for u in 1:np.nstations, v in nonzerodests(np,u)
+    for u=1:np.nstations, v=nonzerodests(np,u)
         commutelines[1][u,v] = Int[]
         #=if nlegs == 2
             commutelines[2][u,v] = Tuple{Int,Int}[]
@@ -281,7 +280,7 @@ function computexfrstns(
         return xfrstns
     end
     nstns = np.nstations
-    for u in 1:nstns, v in nonzerodests(np, u)
+    for (u,v) in commutes(np)
         xfrstns[u,v] = Vector{Int}()
         for w in xfrset
             if validtransfer(np, u, v, w, angleparam, distparam, gridtype)

@@ -7,6 +7,17 @@ nonzerodests(np::TN.TransitNetworkProblem, u::Int) =
     filter!(i -> i != u, findall(np.odmatrix[u,:] .> 0))
 
 """
+Return a vector of commutes with nonzero demand.
+"""
+commutes(np::TN.TransitNetworkProblem) =
+    unique(
+        vcat([[(min(u,v),max(u,v)) for v in nonzerodests(np,u)] for u in 1:np.nstations]...)
+    )
+
+demand(np::TN.TransitNetworkProblem, uv::Tuple{Int,Int}) =
+    np.odmatrix[uv[1],uv[2]] + np.odmatrix[uv[2],uv[1]]
+
+"""
 Return the unique lines of `linelist`.
 
 It ensures that both a line and its reverse will not appear.
