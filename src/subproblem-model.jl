@@ -79,7 +79,6 @@ function basemodel(
     sp, src, snk, edg, srv, ingraph
 end
 
-#=
 """
 Adds transferring variables and constraints to subproblem model `sp`.
 
@@ -89,49 +88,32 @@ Use basemodel(...) for constructing a subproblem model.
 * `srv[u,v]` corresponds to `g[1][u,v]` (`g[u,v]` in the direct-route model).
 * `ingraph` is a vector where `ingraph[u]` corresponds to a JuMP expression for
     `sum(f[u,v] for u in In(v))`.
-* `xfrstops_uw[u,v]` contains the `w`s that have a connection from `u`, 
-    separated into vectors corresponding to active [1] and inactive [2] lines.
-* `xfrstops_wv[u,v]` contains the `w`s that have a connection to `v`,
-    separated into vectors corresponding to active [1] and inactive [2] lines.
 """
 function transfermodel(
         np::TN.TransitNetworkProblem,
         sp::JuMP.Model,
         srv,
         ingraph,
-        xfrstops_uw,
-        xfrstops_wv
+        xfrstns
     )
     nstns = np.nstations
-    ncases = 4
 
-    # In the single-transfers model, srv2[u,v,i] corresponds to g[1+i][u,v].
-    JuMP.@variable(sp, 0 <= srv2[u=1:nstns, v=nonzerodests(np,u),1:ncases] <= 1)
+    JuMP.@variable(sp, 0 <= srv2a[(u,v)=commutes(np),w=xfrstns[(u,v)]] <= 1)
+    JuMP.@variable(sp, 0 <= srv2b[(u,v)=commutes(np),w=xfrstns[(u,v)]] <= 1)
 
     JuMP.@constraints sp begin
-        [u=1:nstns, v=nonzerodests(np,u)], srv2[u,v,1] <= ingraph[u]
-        [u=1:nstns, v=nonzerodests(np,u)], srv2[u,v,2] <= ingraph[v]
-        [u=1:nstns, v=nonzerodests(np,u)], srv2[u,v,3] <= ingraph[u]
-        [u=1:nstns, v=nonzerodests(np,u)], srv2[u,v,4] <= ingraph[v]
-        [u=1:nstns, v=nonzerodests(np,u)],
-            srv[u,v] + sum(srv2[u,v,i] for i in 1:ncases) <= 1
-        [u=1:nstns, v=nonzerodests(np,u)], 
-            srv2[u,v,1] <= ((length(xfrstops_wv[u,v][1]) == 0) ?
-                            0 : sum(ingraph[w] for w in xfrstops_wv[u,v][1]))
-        [u=1:nstns, v=nonzerodests(np,u)],     
-            srv2[u,v,2] <= ((length(xfrstops_uw[u,v][1]) == 0) ?
-                            0 : sum(ingraph[w] for w in xfrstops_uw[u,v][1]))
-        [u=1:nstns, v=nonzerodests(np,u)], 
-            srv2[u,v,3] <= ((length(xfrstops_wv[u,v][2]) == 0) ?
-                            0 : sum(ingraph[w] for w in xfrstops_wv[u,v][2]))
-        [u=1:nstns, v=nonzerodests(np,u)], 
-            srv2[u,v,4] <= ((length(xfrstops_uw[u,v][2]) == 0) ?
-                            0 : sum(ingraph[w] for w in xfrstops_uw[u,v][2]))
+        [(u,v)=commutes(np),w=xfrstns[(u,v)]], srv2a[(u,v),w] <= ingraph[u]
+        [(u,v)=commutes(np),w=xfrstns[(u,v)]], srv2a[(u,v),w] <= ingraph[w]
+        [(u,v)=commutes(np),w=xfrstns[(u,v)]], srv2a[(u,v),w] <= 1-ingraph[v]
+        [(u,v)=commutes(np),w=xfrstns[(u,v)]], srv2b[(u,v),w] <= ingraph[v]
+        [(u,v)=commutes(np),w=xfrstns[(u,v)]], srv2b[(u,v),w] <= ingraph[w]
+        [(u,v)=commutes(np),w=xfrstns[(u,v)]], srv2b[(u,v),w] <= 1-ingraph[u]
+        [(u,v)=commutes(np)], srv[(u,v)] + sum(srv2a[(u,v),w] + srv2b[(u,v),w] for w in xfrstns[(u,v)]) <= 1
     end
 
-    srv2
+    (srv2a, srv2b)
 end
-=#
+
 
 #=
 """
@@ -173,8 +155,7 @@ A `path::Vector{Int}` of the stations along the profitable line.
 """
 function generatecolumn(
         sp::SubProblem, 
-        p,
-        q;
+        rmp::MasterProblem;
         trackingstatuses::Vector{Symbol} = Symbol[],
         trackingtimegrid::Int = 5
     )
@@ -183,9 +164,19 @@ function generatecolumn(
         (u,v) = key[1]
         capexpr += cdual[(u,v)] * (sp.edg[u,v] + sp.edg[v,u])
     end=#
+    p = JuMP.getdual(rmp.model[:choseline])
+    q = max(1e-3,JuMP.getdual(rmp.model[:bcon]))
+    pi2a = JuMP.getdual(rmp.model[:freq2a])
+    pi2b = JuMP.getdual(rmp.model[:freq2b])
     JuMP.@objective(sp.model,
         Max,
-        sum(p[(u,v)] * sp.srv[(u,v)] for (u,v) in commutes(sp.np)) - 
+        sum(p[(u,v)] * sp.srv[(u,v)] for (u,v) in commutes(sp.np)) +
+        sum(sum(pi2a[(u,v),w] * sp.srv2[1][(u,v),w] 
+                for w in rmp.xfrstns[(u,v)]) 
+            for (u,v) in commutes(sp.np)) +
+        sum(sum(pi2b[(u,v),w] * sp.srv2[2][(u,v),w] 
+                for w in rmp.xfrstns[(u,v)]) 
+            for (u,v) in commutes(sp.np)) - 
         q * sum(sp.dists[u,v]*sp.edg[u,v]
             for u in 1:sp.np.nstations, v in sp.outneighbors[u]) # - capexpr
     )
@@ -262,10 +253,6 @@ A `(path, auxinfo)` tuple.
 """
 function generatecolumn(
         rmp::MasterProblem; 
-        coeffs::NTuple{2, Dict{Tuple{Int,Int},Float64}} = (
-            Dict(k => 0.5 for k in keys(p)),
-            Dict(k => 0.5 for k in keys(p))
-        ),
         directions::Vector{Vector{Float64}} = [
             [ 1.0, 0.0], [ 1.0, 0.5],
             [ 1.0, 1.0], [ 0.5, 1.0],
@@ -294,10 +281,6 @@ function generatecolumn(
     ]
     neighbors = [setdiff(find(dists[u,:] .< maxdist),u) for u in 1:nstns]
 
-    p = JuMP.getdual(rmp.model[:choseline])
-    q = JuMP.getdual(rmp.model[:bcon])
-    # s = JuMP.getdual(rmp.choseub)
-
     # compute warm start
     oldobj = 0.0
     sp_warm = [SubProblem(rmp,
@@ -308,7 +291,7 @@ function generatecolumn(
                           solver = Gurobi.GurobiSolver(OutputFlag = 0)) 
                 for d in directions]
     sp_objs = [JuMP.getobjectivevalue(spw.model) for spw in sp_warm]
-    soln_warm = [generatecolumn(spw,p,q,coeffs=coeffs) for spw in sp_warm]
+    soln_warm = [generatecolumn(spw,rmp) for spw in sp_warm]
     nodeset = unique(union(soln_warm...))
     push!(auxinfo[:time], time() - t0)
     push!(auxinfo[:obj], maximum(sp_objs))
@@ -324,10 +307,7 @@ function generatecolumn(
                           nodeset = nodeset, 
                           solver = solver)
         warmstart(sp, path)
-        path = generatecolumn(sp,
-                              p,
-                              q,
-                              coeffs=coeffs,
+        path = generatecolumn(sp,rmp,
                               trackingstatuses=trackingstatuses)
         if round(JuMP.getobjectivevalue(sp.model),digits=3) == round(oldobj,digits=3)
             break
