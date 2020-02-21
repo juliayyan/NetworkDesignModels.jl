@@ -1,25 +1,23 @@
 function addlazytraveltimes(
     cb,
-    np::TN.TransitNetworkProblem,
+    np::TransitNetwork,
     edg,
     outneighbors::Vector{Vector{Int}},
-    gridtype::Symbol,
     distparam::Float64,
     detail::Bool,
     auxinfo::Dict{Symbol,Any},
-    simplepath::Vector{Int}
-)
+    simplepath::Vector{Int})
     for len in 2:length(simplepath), p_i in 1:(length(simplepath)-len)
         p_j = p_i+len
-        directdist = edgecost(np,simplepath[p_i],simplepath[p_j],gridtype) 
+        directdist = edgecost(np,simplepath[p_i],simplepath[p_j]) 
         pathsubset = simplepath[p_i:p_j]
-        subsetcost = linecost(np,pathsubset,gridtype)
+        subsetcost = linecost(np,pathsubset)
         if subsetcost > distparam*directdist
             if detail && length(pathsubset) <= 4
-                mincost = minimum(insertionheuristic(np,pathsubset,gridtype,start) 
+                mincost = minimum(insertionheuristic(np,pathsubset,start) 
                                   for start in 1:length(pathsubset))
             else 
-                mincost = insertionheuristic(np,pathsubset,gridtype)    
+                mincost = insertionheuristic(np,pathsubset)    
             end
             if mincost >= subsetcost
                 expr = sum(
@@ -46,9 +44,8 @@ uses an insertion heuristic to calculate shortest path through nodes
 starting at nodes[1]
 """
 function insertionheuristic(
-    np::TransitNetworks.TransitNetworkProblem, 
+    np::TransitNetwork, 
     nodes::Vector{Int},
-    gridtype::Symbol,
     start::Int = 1)
     @assert length(unique(nodes)) == length(nodes)
     visited = [false for u in nodes]
@@ -57,7 +54,7 @@ function insertionheuristic(
     visited[start] = true
     while sum(.!visited) > 0
         candidates = nodes[.!visited]
-        costs = [NetworkDesignModels.edgecost(np,this,that,gridtype) 
+        costs = [NetworkDesignModels.edgecost(np,this,that) 
                  for that in candidates]
         totalcost += minimum(costs)
         that = candidates[findmin(costs)[2]]

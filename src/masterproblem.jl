@@ -1,13 +1,11 @@
 mutable struct MasterProblem
     # Network information
-    np::TN.TransitNetworkProblem
+    np::TransitNetwork
     linelist::Vector{Vector{Int}}
     commutelines::Vector{Dict{Tuple{Int,Int},Any}}
-    xfrstns::Dict{Tuple{Int,Int},Vector{Int}}
     angleparam::Float64
     distparam::Float64
     costs::Vector{Float64}
-    gridtype::Symbol
     
     # Optimization information
     model::JuMP.Model
@@ -42,11 +40,8 @@ NetworkDesignModels.optimize(rmp, 5.0) # solves the problem with a budget of 5
 ```
 """
 function MasterProblem(
-        np::TN.TransitNetworkProblem;
-        gridtype::Symbol = :latlong,
+        np::TransitNetwork;
         linelist::Vector{Vector{Int}} = uniquelines(np.lines),
-        xfrset::Vector{Int} = Vector{Int}(1:np.nstations),
-        xfrstns = nothing,
         nlegs::Int = 1,
         angleparam::Float64 = -1.0, # deprecated by default
         distparam::Float64 = 1.5,
@@ -54,31 +49,27 @@ function MasterProblem(
         modeltype::Symbol = :lp
     )
     @assert in(modeltype, [:lp, :ip])
-    @assert in(gridtype, [:latlong, :euclidean])
+    @assert in(np.gridtype, [:latlong, :euclidean])
     @assert abs(angleparam) <= 1.0
     @assert distparam >= 1.0
 
-    commutelines = allcommutelines(np, nlegs, linelist, angleparam, distparam, gridtype)
-    if xfrstns == nothing
-        xfrstns = computexfrstns(np, nlegs, angleparam, distparam, gridtype, xfrset = xfrset)
-    end
-    costs = Vector{Float64}([linecost(np, line, gridtype) for line in linelist])
+    commutelines = allcommutelines(np, nlegs, linelist)
+    costs = Vector{Float64}([linecost(np, line) for line in linelist])
     rmp, budget, x, θ = mastermodel(
-        np, linelist, commutelines, xfrstns, costs, solver, modeltype
+        np, linelist, commutelines, costs, solver, modeltype
     )
     
     MasterProblem(
-        np, linelist, commutelines, xfrstns, angleparam, distparam, costs, gridtype, 
+        np, linelist, commutelines, angleparam, distparam, costs, 
         rmp, budget, x, θ, solver, modeltype
     )
 end
 
 "build base master problem model"
 function mastermodel(
-        np::TN.TransitNetworkProblem,
+        np::TransitNetwork,
         linelist::Vector{Vector{Int}},
         commutelines::Vector{Dict{Tuple{Int,Int},Any}},
-        xfrstns::Dict{Tuple{Int,Int},Vector{Int}},
         costs::Vector{Float64},
         solver,
         modeltype::Symbol
@@ -95,7 +86,7 @@ function mastermodel(
     if length(commutelines) == 2
         JuMP.@variable(rmp, twoline[
             (u,v)=commutes(np),
-            w=xfrstns[(u,v)] 
+            w=np.xfrstns[(u,v)] 
         ])
     end
     JuMP.@variable(rmp, budget)
@@ -119,12 +110,12 @@ function mastermodel(
     else 
         JuMP.@constraint(rmp,
             choseline[(u,v)=commutes(np)],
-            θ[(u,v)] <= sum(x[l] for l in commutelines[1][u,v]) + sum(twoline[(u,v),w] for w in xfrstns[(u,v)]))
+            θ[(u,v)] <= sum(x[l] for l in commutelines[1][u,v]) + sum(twoline[(u,v),w] for w in np.xfrstns[(u,v)]))
         JuMP.@constraint(rmp,
-            freq2a[(u,v)=commutes(np), w=xfrstns[(u,v)]],
+            freq2a[(u,v)=commutes(np), w=np.xfrstns[(u,v)]],
             twoline[(u,v),w] <= sum(x[l] for l in setdiff(commutelines[1][u,w], commutelines[1][u,v])))
         JuMP.@constraint(rmp,
-            freq2b[(u,v)=commutes(np), w=xfrstns[(u,v)]],
+            freq2b[(u,v)=commutes(np), w=np.xfrstns[(u,v)]],
             twoline[(u,v),w] <= sum(x[l] for l in setdiff(commutelines[1][w,v], commutelines[1][u,v])))
     end
     
@@ -167,15 +158,14 @@ function addcolumn!(
     )
     # recompute line information
     addline!(
-        rmp.np, rmp.linelist, rmp.commutelines, line, 
-        rmp.angleparam, rmp.distparam, rmp.gridtype
+        rmp.np, rmp.linelist, rmp.commutelines, line
     )
-    push!(rmp.costs, linecost(rmp.np, line,rmp.gridtype))
+    push!(rmp.costs, linecost(rmp.np, line))
     initialbudget = JuMP.getvalue(rmp.budget)
 
     rmp.model, rmp.budget, rmp.x, rmp.θ = 
         mastermodel(
-            rmp.np, rmp.linelist, rmp.commutelines, rmp.xfrstns, rmp.costs, rmp.solver,
+            rmp.np, rmp.linelist, rmp.commutelines, rmp.costs, rmp.solver,
             rmp.modeltype
         )
     JuMP.fix(rmp.budget, initialbudget)
@@ -192,12 +182,9 @@ In practice, we don't support i > 2, so
     commutelines[2][u,v] is a Vector{Tuple{Int,Int}}.
 """
 function allcommutelines(
-        np::TN.TransitNetworkProblem,
+        np::TransitNetwork,
         nlegs::Int,
-        linelist::Vector{Vector{Int}},
-        angleparam::Float64,
-        distparam::Float64,
-        gridtype::Symbol
+        linelist::Vector{Vector{Int}}
     )
     @assert nlegs <= 2
 
@@ -216,7 +203,7 @@ function allcommutelines(
     linelistcopy = Vector{Int}[]
     for line in linelist
         linelistcopy = addline!(
-            np, linelistcopy, commutelines, line, angleparam, distparam, gridtype
+            np, linelistcopy, commutelines, line
         )
     end
     @assert linelistcopy == linelist
@@ -228,13 +215,10 @@ end
 Modify `oldlines` and `commutelines` in-place, adding information about `line`.
 """
 function addline!(
-        np::TN.TransitNetworkProblem,
+        np::TransitNetwork,
         oldlines::Vector{Vector{Int}},
         commutelines::Vector{Dict{Tuple{Int,Int},Any}},
-        line::Vector{Int},
-        angleparam::Float64,
-        distparam::Float64,
-        gridtype::Symbol
+        line::Vector{Int}
     )
     l1 = length(oldlines) + 1 # We introduce a new `line` with index `l1`.
     # Single-leg commutes
@@ -265,33 +249,6 @@ function addline!(
     end=#
     # We update oldlines at the end to avoid conflicts with the earlier updates.
     push!(oldlines, line)
-end
-
-"""
-Compute valid transfer stations for each commute.
-"""
-function computexfrstns(
-        np::TN.TransitNetworkProblem,
-        nlegs::Int,
-        angleparam::Float64,
-        distparam::Float64,
-        gridtype::Symbol;
-        xfrset::Vector{Int} = Vector{Int}(1:np.nstations)
-    )
-    xfrstns = Dict{Tuple{Int,Int}, Vector{Int}}()
-    if nlegs == 1
-        return xfrstns
-    end
-    nstns = np.nstations
-    for (u,v) in commutes(np)
-        xfrstns[u,v] = Vector{Int}()
-        for w in xfrset
-            if validtransfer(np, u, v, w, angleparam, distparam, gridtype)
-                push!(xfrstns[u,v], w)
-            end
-        end
-    end
-    xfrstns
 end
 
 """

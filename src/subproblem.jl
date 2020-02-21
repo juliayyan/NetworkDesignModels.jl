@@ -1,5 +1,5 @@
 mutable struct SubProblem
-    np::TN.TransitNetworkProblem
+    np::TransitNetwork
     model::JuMP.Model
     src::Vector{JuMP.Variable}
     snk::Vector{JuMP.Variable}
@@ -50,8 +50,8 @@ function SubProblem(
     inneighbors  = [Int[] for u in 1:nstns]
     graph = LightGraphs.DiGraph(nstns)
     for u in 1:nstns, v in (u+1):nstns
-        d = edgecost(np, u, v, gridtype)
-        b = dir(np, u, v, gridtype)
+        d = edgecost(np, u, v)
+        b = dir(np, u, v)
         sim = dot(direction, b) / norm(direction) / norm(b)
         if (d < maxdist) && (1 - abs(sim) < delta)
             if sim >= 0
@@ -74,7 +74,7 @@ function SubProblem(
     )
 
     if nlegs == 2
-        srv2 = transfermodel(np, sp, srv, ingraph, rmp.xfrstns)
+        srv2 = transfermodel(np, sp, srv, ingraph)
     else
         srv2 = nothing
     end
@@ -112,7 +112,6 @@ function SubProblemCP(
     )
     np = rmp.np
     nstns = np.nstations
-    gridtype = rmp.gridtype
 
     # construct graph and ensure there are no cycles
     dists = Dict{Tuple{Int,Int},Float64}() 
@@ -121,7 +120,7 @@ function SubProblemCP(
     for u in 1:nstns
         for v in (u+1):nstns 
             !in(u, nodeset) && !in(v, nodeset) && continue
-            d = edgecost(np, u, v, gridtype)
+            d = edgecost(np, u, v)
             if d < maxdist
                 dists[u,v] = d
                 push!(outneighbors[u], v)
@@ -137,7 +136,7 @@ function SubProblemCP(
         np, inneighbors, outneighbors, maxlength, rmp.linelist, solver
     )
     if nlegs == 2
-        srv2 = transfermodel(np, sp, srv, ingraph, rmp.xfrstns)
+        srv2 = transfermodel(np, sp, srv, ingraph)
     else
         srv2 = nothing
     end
@@ -171,8 +170,7 @@ function SubProblemCP(
         end
         if traveltimes
             addlazytraveltimes(cb, 
-                np, edg, outneighbors,
-                rmp.gridtype, rmp.distparam,
+                np, edg, outneighbors, rmp.distparam,
                 detail,
                 auxinfo,
                 simplepath)

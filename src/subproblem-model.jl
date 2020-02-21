@@ -5,7 +5,7 @@ Use transfermodel(...) to the additional variables and constraints needed for
 modelling single-transfers.
 """
 function basemodel(
-        np::TN.TransitNetworkProblem,
+        np::TransitNetwork,
         inneighbors::Vector{Vector{Int}},
         outneighbors::Vector{Vector{Int}},
         maxlength::Int, # maximum number of edges in a path
@@ -90,25 +90,24 @@ Use basemodel(...) for constructing a subproblem model.
     `sum(f[u,v] for u in In(v))`.
 """
 function transfermodel(
-        np::TN.TransitNetworkProblem,
+        np::TransitNetwork,
         sp::JuMP.Model,
         srv,
-        ingraph,
-        xfrstns
+        ingraph
     )
     nstns = np.nstations
 
-    JuMP.@variable(sp, 0 <= srv2a[(u,v)=commutes(np),w=xfrstns[(u,v)]] <= 1)
-    JuMP.@variable(sp, 0 <= srv2b[(u,v)=commutes(np),w=xfrstns[(u,v)]] <= 1)
+    JuMP.@variable(sp, 0 <= srv2a[(u,v)=commutes(np),w=np.xfrstns[(u,v)]] <= 1)
+    JuMP.@variable(sp, 0 <= srv2b[(u,v)=commutes(np),w=np.xfrstns[(u,v)]] <= 1)
 
     JuMP.@constraints sp begin
-        [(u,v)=commutes(np),w=xfrstns[(u,v)]], srv2a[(u,v),w] <= ingraph[u]
-        [(u,v)=commutes(np),w=xfrstns[(u,v)]], srv2a[(u,v),w] <= ingraph[w]
-        [(u,v)=commutes(np),w=xfrstns[(u,v)]], srv2a[(u,v),w] <= 1-ingraph[v]
-        [(u,v)=commutes(np),w=xfrstns[(u,v)]], srv2b[(u,v),w] <= ingraph[v]
-        [(u,v)=commutes(np),w=xfrstns[(u,v)]], srv2b[(u,v),w] <= ingraph[w]
-        [(u,v)=commutes(np),w=xfrstns[(u,v)]], srv2b[(u,v),w] <= 1-ingraph[u]
-        [(u,v)=commutes(np)], srv[(u,v)] + sum(srv2a[(u,v),w] + srv2b[(u,v),w] for w in xfrstns[(u,v)]) <= 1
+        [(u,v)=commutes(np),w=np.xfrstns[(u,v)]], srv2a[(u,v),w] <= ingraph[u]
+        [(u,v)=commutes(np),w=np.xfrstns[(u,v)]], srv2a[(u,v),w] <= ingraph[w]
+        [(u,v)=commutes(np),w=np.xfrstns[(u,v)]], srv2a[(u,v),w] <= 1-ingraph[v]
+        [(u,v)=commutes(np),w=np.xfrstns[(u,v)]], srv2b[(u,v),w] <= ingraph[v]
+        [(u,v)=commutes(np),w=np.xfrstns[(u,v)]], srv2b[(u,v),w] <= ingraph[w]
+        [(u,v)=commutes(np),w=np.xfrstns[(u,v)]], srv2b[(u,v),w] <= 1-ingraph[u]
+        [(u,v)=commutes(np)], srv[(u,v)] + sum(srv2a[(u,v),w] + srv2b[(u,v),w] for w in np.xfrstns[(u,v)]) <= 1
     end
 
     (srv2a, srv2b)
@@ -172,10 +171,10 @@ function generatecolumn(
         Max,
         sum(p[(u,v)] * sp.srv[(u,v)] for (u,v) in commutes(sp.np)) +
         sum(sum(pi2a[(u,v),w] * sp.srv2[1][(u,v),w] 
-                for w in rmp.xfrstns[(u,v)]) 
+                for w in rmp.np.xfrstns[(u,v)]) 
             for (u,v) in commutes(sp.np)) +
         sum(sum(pi2b[(u,v),w] * sp.srv2[2][(u,v),w] 
-                for w in rmp.xfrstns[(u,v)]) 
+                for w in rmp.np.xfrstns[(u,v)]) 
             for (u,v) in commutes(sp.np)) - 
         q * sum(sp.dists[u,v]*sp.edg[u,v]
             for u in 1:sp.np.nstations, v in sp.outneighbors[u]) # - capexpr
@@ -277,7 +276,7 @@ function generatecolumn(
 
     nstns = rmp.np.nstations
     dists = [
-        edgecost(rmp.np,u,v,rmp.gridtype) for u in 1:nstns, v in 1:nstns
+        edgecost(rmp.np,u,v) for u in 1:nstns, v in 1:nstns
     ]
     neighbors = [setdiff(find(dists[u,:] .< maxdist),u) for u in 1:nstns]
 
