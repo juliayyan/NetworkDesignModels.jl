@@ -46,6 +46,7 @@ function MasterProblem(
         gridtype::Symbol = :latlong,
         linelist::Vector{Vector{Int}} = uniquelines(np.lines),
         xfrset::Vector{Int} = Vector{Int}(1:np.nstations),
+        xfrstns = nothing,
         nlegs::Int = 1,
         angleparam::Float64 = -1.0, # deprecated by default
         distparam::Float64 = 1.5,
@@ -58,7 +59,9 @@ function MasterProblem(
     @assert distparam >= 1.0
 
     commutelines = allcommutelines(np, nlegs, linelist, angleparam, distparam, gridtype)
-    xfrstns = computexfrstns(np, nlegs, angleparam, distparam, gridtype, xfrset = xfrset)
+    if xfrstns == nothing
+        xfrstns = computexfrstns(np, nlegs, angleparam, distparam, gridtype, xfrset = xfrset)
+    end
     costs = Vector{Float64}([linecost(np, line, gridtype) for line in linelist])
     rmp, budget, x, θ = mastermodel(
         np, linelist, commutelines, xfrstns, costs, solver, modeltype
