@@ -155,6 +155,7 @@ A `path::Vector{Int}` of the stations along the profitable line.
 function generatecolumn(
         sp::SubProblem, 
         rmp::MasterProblem;
+        f::Int = 1,
         trackingstatuses::Vector{Symbol} = Symbol[],
         trackingtimegrid::Int = 5
     )
@@ -163,22 +164,34 @@ function generatecolumn(
         (u,v) = key[1]
         capexpr += cdual[(u,v)] * (sp.edg[u,v] + sp.edg[v,u])
     end=#
+    freqwt = rmp.options.freqwts[f]
+    xfrwt = rmp.options.xfrwts[f]
+    costwt = rmp.options.costwts[f]
     p = JuMP.getdual(rmp.model[:choseline])
     q = max(1e-3,JuMP.getdual(rmp.model[:bcon]))
     pi2a = JuMP.getdual(rmp.model[:freq2a])
     pi2b = JuMP.getdual(rmp.model[:freq2b])
-    JuMP.@objective(sp.model,
-        Max,
-        sum(p[(u,v)] * sp.srv[(u,v)] for (u,v) in commutes(sp.np)) +
-        sum(sum(pi2a[(u,v),w] * sp.srv2[1][(u,v),w] 
-                for w in rmp.np.xfrstns[(u,v)]) 
-            for (u,v) in commutes(sp.np)) +
-        sum(sum(pi2b[(u,v),w] * sp.srv2[2][(u,v),w] 
-                for w in rmp.np.xfrstns[(u,v)]) 
-            for (u,v) in commutes(sp.np)) - 
-        q * sum(sp.dists[u,v]*sp.edg[u,v]
-            for u in 1:sp.np.nstations, v in sp.outneighbors[u]) # - capexpr
-    )
+    if sp.srv2 != nothing
+        JuMP.@objective(sp.model,
+            Max,
+            freqwt * sum(p[(u,v)] * sp.srv[(u,v)] for (u,v) in commutes(sp.np)) +
+            xfrwt * sum(sum(pi2a[(u,v),w] * sp.srv2[1][(u,v),w] 
+                    for w in rmp.np.xfrstns[(u,v)]) 
+                for (u,v) in commutes(sp.np)) +
+            xfrwt * sum(sum(pi2b[(u,v),w] * sp.srv2[2][(u,v),w] 
+                    for w in rmp.np.xfrstns[(u,v)]) 
+                for (u,v) in commutes(sp.np)) - 
+            costwt * q * sum(sp.dists[u,v]*sp.edg[u,v]
+                for u in 1:sp.np.nstations, v in sp.outneighbors[u]) # - capexpr
+        )
+    else
+        JuMP.@objective(sp.model,
+            Max,
+            freqwt * sum(p[(u,v)] * sp.srv[(u,v)] for (u,v) in commutes(sp.np)) -
+            costwt * q * sum(sp.dists[u,v]*sp.edg[u,v]
+                for u in 1:sp.np.nstations, v in sp.outneighbors[u]) # - capexpr
+        )
+    end
 
     t0 = time()
     for tracking in trackingstatuses

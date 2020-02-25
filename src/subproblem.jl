@@ -33,7 +33,7 @@ Constructs an acyclic graph that only has edges within some `delta` tolerance of
 """
 function SubProblem(
         rmp::MasterProblem;
-        nlegs::Int = length(rmp.commutelines), # in case 2-legs hard to solve
+        nlegs::Int = rmp.options.nlegs, # in case 2-legs hard to solve
         solver = Gurobi.GurobiSolver(OutputFlag = 0),
         maxdist::Float64 = 0.5,
         direction::Vector{Float64} = [0.0,1.0],
@@ -103,7 +103,7 @@ cutting planes.
 function SubProblemCP(
         rmp::MasterProblem;
         nodeset::Vector{Int} = Vector(1:rmp.np.nstations),
-        nlegs::Int = length(rmp.commutelines),
+        nlegs::Int = rmp.options.nlegs,
         solver = Gurobi.GurobiSolver(OutputFlag = 0),
         maxdist::Float64 = 0.5,
         maxlength::Int = 30,

@@ -1,9 +1,12 @@
 @with_kw mutable struct MasterOptions
-    nlegs::Int          = 1
-    nfreqs::Int         = 1
-    angleparam::Float64 = -1.0 # deprecated by default
-    distparam::Float64  = 1.5
-    modeltype::Symbol   = :lp
+    nlegs::Int                  = 1
+    nfreqs::Int                 = 1
+    freqwts::Vector{Float64}    = [1.0]
+    xfrwts::Vector{Float64}     = [1.0]
+    costwts::Vector{Float64}    = [1.0]    
+    angleparam::Float64         = -1.0 # deprecated by default
+    distparam::Float64          = 1.5
+    modeltype::Symbol           = :lp
 end
 
 mutable struct MasterProblem
@@ -16,7 +19,7 @@ mutable struct MasterProblem
     # Optimization information
     model::JuMP.Model
     budget::JuMP.Variable
-    x::Vector{JuMP.Variable}
+    x::Array{JuMP.Variable,2}
     θ::JuMP.JuMPArray
     solver
 
@@ -79,13 +82,17 @@ function mastermodel(
         options::MasterOptions
     )
     nlines = length(linelist)
+    nfreqs = options.nfreqs
+    freqwts = options.freqwts
+    xfrwts = options.xfrwts
+    costwts = options.costwts
 
     rmp = JuMP.Model(solver=solver)
 
     if options.modeltype == :lp
-        JuMP.@variable(rmp, x[l=1:nlines] >= 0)
+        JuMP.@variable(rmp, x[l=1:nlines,f=1:nfreqs] >= 0)
     elseif options.modeltype == :ip
-        JuMP.@variable(rmp, x[l=1:nlines], Bin)
+        JuMP.@variable(rmp, x[l=1:nlines,f=1:nfreqs], Bin)
     end
     if options.nlegs == 2
         JuMP.@variable(rmp, twoline[
@@ -95,7 +102,6 @@ function mastermodel(
     end
     JuMP.@variable(rmp, budget)
     JuMP.@variable(rmp, θ[(u,v)=commutes(np)])
-    
     # maximize ridership
     JuMP.@objective(rmp, 
         Max, 
@@ -109,18 +115,24 @@ function mastermodel(
     if options.nlegs == 1
         JuMP.@constraint(rmp,
             choseline[(u,v)=commutes(np)],
-            θ[(u,v)] <= sum(x[l] for l in commutelines[1][u,v])
-        )
+            θ[(u,v)] <= sum(freqwts[f]*sum(x[l,f] for l in commutelines[1][u,v]) 
+                            for f in 1:nfreqs))
     else 
         JuMP.@constraint(rmp,
             choseline[(u,v)=commutes(np)],
-            θ[(u,v)] <= sum(x[l] for l in commutelines[1][u,v]) + sum(twoline[(u,v),w] for w in np.xfrstns[(u,v)]))
+            θ[(u,v)] <= 
+                sum(freqwts[f]*sum(x[l,f] for l in commutelines[1][u,v]) for f in 1:nfreqs) + 
+                sum(twoline[(u,v),w] for w in np.xfrstns[(u,v)]))
         JuMP.@constraint(rmp,
             freq2a[(u,v)=commutes(np), w=np.xfrstns[(u,v)]],
-            twoline[(u,v),w] <= sum(x[l] for l in setdiff(commutelines[1][u,w], commutelines[1][u,v])))
+            twoline[(u,v),w] <= 
+                sum(xfrwts[f]*sum(x[l,f] for l in setdiff(commutelines[1][u,w], commutelines[1][u,v]))
+                    for f in 1:nfreqs))
         JuMP.@constraint(rmp,
             freq2b[(u,v)=commutes(np), w=np.xfrstns[(u,v)]],
-            twoline[(u,v),w] <= sum(x[l] for l in setdiff(commutelines[1][w,v], commutelines[1][u,v])))
+            twoline[(u,v),w] <= 
+                sum(xfrwts[f]*sum(x[l,f] for l in setdiff(commutelines[1][w,v], commutelines[1][u,v]))
+                    for f in 1:nfreqs))
     end
     
     # capacity constraint
@@ -145,8 +157,16 @@ function mastermodel(
         ccon[edg in keys(edgelines)], 
         sum(x[l] for l in edgelines[edg]) <= 1)=#
     
+    # choose one frequency
+    if nfreqs > 1
+        JuMP.@constraint(rmp, 
+            [l=1:nlines],
+            sum(x[l,f] for f in 1:nfreqs) <= 1)
+    end
+
     # budget constraint
-    JuMP.@constraint(rmp, bcon, dot(costs, x) <= budget)
+    JuMP.@constraint(rmp, bcon, 
+        sum(costwts[f]*costs[l]*x[l,f] for l in 1:nlines for f in 1:nfreqs) <= budget)
 
     rmp, budget, x, θ
 end 
