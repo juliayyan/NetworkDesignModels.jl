@@ -1,7 +1,7 @@
 module NetworkDesignModels
 
     import JuMP, Gurobi, LightGraphs, MathProgBase
-    using LinearAlgebra
+    using LinearAlgebra, Parameters
 
     include("transitnetwork.jl")
     include("utils.jl")

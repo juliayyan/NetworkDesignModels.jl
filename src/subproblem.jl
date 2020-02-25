@@ -170,7 +170,7 @@ function SubProblemCP(
         end
         if traveltimes
             addlazytraveltimes(cb, 
-                np, edg, outneighbors, rmp.distparam,
+                np, edg, outneighbors, rmp.options.distparam,
                 detail,
                 auxinfo,
                 simplepath)

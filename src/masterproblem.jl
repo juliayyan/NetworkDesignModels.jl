@@ -1,10 +1,16 @@
+@with_kw mutable struct MasterOptions
+    nlegs::Int          = 1
+    nfreqs::Int         = 1
+    angleparam::Float64 = -1.0 # deprecated by default
+    distparam::Float64  = 1.5
+    modeltype::Symbol   = :lp
+end
+
 mutable struct MasterProblem
     # Network information
     np::TransitNetwork
     linelist::Vector{Vector{Int}}
     commutelines::Vector{Dict{Tuple{Int,Int},Any}}
-    angleparam::Float64
-    distparam::Float64
     costs::Vector{Float64}
     
     # Optimization information
@@ -13,7 +19,8 @@ mutable struct MasterProblem
     x::Vector{JuMP.Variable}
     θ::JuMP.JuMPArray
     solver
-    modeltype::Symbol
+
+    options::MasterOptions
 end
 
 """
@@ -42,26 +49,23 @@ NetworkDesignModels.optimize(rmp, 5.0) # solves the problem with a budget of 5
 function MasterProblem(
         np::TransitNetwork;
         linelist::Vector{Vector{Int}} = uniquelines(np.lines),
-        nlegs::Int = 1,
-        angleparam::Float64 = -1.0, # deprecated by default
-        distparam::Float64 = 1.5,
-        solver = Gurobi.GurobiSolver(OutputFlag = 0),
-        modeltype::Symbol = :lp
+        options = MasterOptions(),
+        solver = Gurobi.GurobiSolver(OutputFlag = 0)
     )
-    @assert in(modeltype, [:lp, :ip])
+    @assert in(options.modeltype, [:lp, :ip])
     @assert in(np.gridtype, [:latlong, :euclidean])
-    @assert abs(angleparam) <= 1.0
-    @assert distparam >= 1.0
+    @assert abs(options.angleparam) <= 1.0
+    @assert options.distparam >= 1.0
 
-    commutelines = allcommutelines(np, nlegs, linelist)
+    commutelines = allcommutelines(np, options.nlegs, linelist)
     costs = Vector{Float64}([linecost(np, line) for line in linelist])
     rmp, budget, x, θ = mastermodel(
-        np, linelist, commutelines, costs, solver, modeltype
+        np, linelist, commutelines, costs, solver, options
     )
     
     MasterProblem(
-        np, linelist, commutelines, angleparam, distparam, costs, 
-        rmp, budget, x, θ, solver, modeltype
+        np, linelist, commutelines, costs, 
+        rmp, budget, x, θ, solver, options
     )
 end
 
@@ -72,18 +76,18 @@ function mastermodel(
         commutelines::Vector{Dict{Tuple{Int,Int},Any}},
         costs::Vector{Float64},
         solver,
-        modeltype::Symbol
+        options::MasterOptions
     )
     nlines = length(linelist)
 
     rmp = JuMP.Model(solver=solver)
 
-    if modeltype == :lp
+    if options.modeltype == :lp
         JuMP.@variable(rmp, x[l=1:nlines] >= 0)
-    elseif modeltype == :ip
+    elseif options.modeltype == :ip
         JuMP.@variable(rmp, x[l=1:nlines], Bin)
     end
-    if length(commutelines) == 2
+    if options.nlegs == 2
         JuMP.@variable(rmp, twoline[
             (u,v)=commutes(np),
             w=np.xfrstns[(u,v)] 
@@ -102,7 +106,7 @@ function mastermodel(
         choseub[(u,v)=commutes(np)],
         θ[(u,v)] <= 1
     )
-    if length(commutelines) == 1
+    if options.nlegs == 1
         JuMP.@constraint(rmp,
             choseline[(u,v)=commutes(np)],
             θ[(u,v)] <= sum(x[l] for l in commutelines[1][u,v])
@@ -166,7 +170,7 @@ function addcolumn!(
     rmp.model, rmp.budget, rmp.x, rmp.θ = 
         mastermodel(
             rmp.np, rmp.linelist, rmp.commutelines, rmp.costs, rmp.solver,
-            rmp.modeltype
+            rmp.options
         )
     JuMP.fix(rmp.budget, initialbudget)
 end
