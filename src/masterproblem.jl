@@ -59,6 +59,7 @@ function MasterProblem(
     @assert in(np.gridtype, [:latlong, :euclidean])
     @assert abs(options.angleparam) <= 1.0
     @assert options.distparam >= 1.0
+    @assert length(options.freqwts) == length(options.xfrwts) == length(options.costwts) == options.nfreqs
 
     commutelines = allcommutelines(np, options.nlegs, linelist)
     costs = Vector{Float64}([linecost(np, line) for line in linelist])
@@ -134,7 +135,7 @@ function mastermodel(
                 sum(xfrwts[f]*sum(x[l,f] for l in setdiff(commutelines[1][w,v], commutelines[1][u,v]))
                     for f in 1:nfreqs))
     end
-    
+
     # capacity constraint
     #=edgelines = Dict{Tuple{Int,Int},Vector{Int}}()
     for l in 1:nlines, k in 2:length(linelist[l])
