@@ -49,7 +49,7 @@ function basemodel(
     end
 
     # remove any lines that already exist
-    #=function removeduplicates(cb)
+    function removeduplicates(cb)
         visited = falses(np.nstations) # whether a node has been visited
         visited[setdiff(1:np.nstations, findall(JuMP.getvalue(ingraph) .> 0))] .= true
         source_val = findfirst(round.(JuMP.getvalue.(src)) .> 0.1)
@@ -65,7 +65,6 @@ function basemodel(
             return
         end
         if linein(simplepath, linelist)
-            println("DUPLICATE LINE GENERATED")
             for pathelim in [simplepath, reverse(simplepath)]
                 inexpr = sum(edg[pathelim[k-1],pathelim[k]] for k in 2:length(pathelim))
                 npathedges = JuMP.getvalue(inexpr)
@@ -73,8 +72,8 @@ function basemodel(
                 JuMP.@lazyconstraint(cb, inexpr + outexpr <= length(edg) - length(simplepath)/2)
             end
         end
-    end=#
-    # JuMP.addlazycallback(sp, removeduplicates)
+    end
+    JuMP.addlazycallback(sp, removeduplicates)
 
     sp, src, snk, edg, srv, ingraph
 end
