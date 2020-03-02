@@ -215,7 +215,7 @@ function allcommutelines(
 
     commutelines = [Dict{Tuple{Int,Int},Any}() for i in 1:nlegs]
     # 1. Initialize each (u,v) entry as an empty vector.
-    for u=1:np.nstations, v=nonzerodests(np,u)
+    for u=1:np.nstations, v=setdiff(1:np.nstations, u)
         commutelines[1][u,v] = Int[]
         #=if nlegs == 2
             commutelines[2][u,v] = Tuple{Int,Int}[]
@@ -248,7 +248,7 @@ function addline!(
     l1 = length(oldlines) + 1 # We introduce a new `line` with index `l1`.
     # Single-leg commutes
     for u in line, v in line
-        in(v, nonzerodests(np, u)) && push!(commutelines[1][u,v], l1)
+        u != v && push!(commutelines[1][u,v], l1)
     end
     # Two-leg commutes
     #=if length(commutelines) == 2
