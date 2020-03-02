@@ -38,14 +38,19 @@ function SubProblem(
         maxdist::Float64 = 0.5,
         direction::Vector{Float64} = [0.0,1.0],
         delta::Float64 = 1.0,
-        maxlength::Int = 30 # maximum number of edges in a path
+        maxlength::Int = 30, # maximum number of edges in a path
+        traveltimes::Bool = false,
+        detail::Bool = false
     )
     np = rmp.np
     nstns = np.nstations
-    gridtype = rmp.gridtype
 
     # construct graph and ensure there are no cycles
-    dists = Dict{Tuple{Int,Int},Float64}()
+    if rmp.np.dists == nothing
+        dists = Dict{Tuple{Int,Int},Float64}()
+    else
+        dists = rmp.np.dists
+    end
     outneighbors = [Int[] for u in 1:nstns]
     inneighbors  = [Int[] for u in 1:nstns]
     graph = LightGraphs.DiGraph(nstns)
@@ -55,12 +60,16 @@ function SubProblem(
         sim = dot(direction, b) / norm(direction) / norm(b)
         if (d < maxdist) && (1 - abs(sim) < delta)
             if sim >= 0
-                dists[u,v] = d
+                if rmp.np.dists == nothing
+                    dists[u,v] = d
+                end
                 push!(outneighbors[u], v)
                 push!(inneighbors[v], u)
                 LightGraphs.add_edge!(graph, (u, v))
             else
-                dists[v,u] = d
+                if rmp.np.dists == nothing
+                    dists[v,u] = d
+                end
                 push!(outneighbors[v], u)
                 push!(inneighbors[u], v)
                 LightGraphs.add_edge!(graph, (v, u))
@@ -79,9 +88,35 @@ function SubProblem(
         srv2 = nothing
     end
 
+    auxinfo = Dict{Symbol,Any}()
+
+    function cuttraveltimes(cb)
+        visited = falses(np.nstations) # whether a node has been visited
+        visited[setdiff(1:np.nstations, findall(JuMP.getvalue(ingraph) .> 0))] .= true
+        source_val = findfirst(round.(JuMP.getvalue.(src)) .> 0.1)
+        sink_val = findfirst(round.(JuMP.getvalue.(snk)) .> 0.1)
+        @assert source_val > 0
+        @assert sink_val > 0
+        @assert source_val != sink_val
+        simplepath = getpath( # bus line
+            source_val, source_val, sink_val, edg, visited, outneighbors
+        )
+        if traveltimes
+            addlazytraveltimes(cb, 
+                np, edg, outneighbors, rmp.options.distparam,
+                detail,
+                auxinfo,
+                simplepath)
+        end
+    end
+    if traveltimes
+        auxinfo[:nlazy] = 0
+        JuMP.addlazycallback(sp, cuttraveltimes)
+    end
+
     SubProblem(
         np, sp, src, snk, edg, ingraph, srv, srv2,
-        dists, outneighbors, inneighbors, nlegs, Dict{Symbol,Any}()
+        dists, outneighbors, inneighbors, nlegs, auxinfo
     )
 end
 
@@ -114,7 +149,11 @@ function SubProblemCP(
     nstns = np.nstations
 
     # construct graph and ensure there are no cycles
-    dists = Dict{Tuple{Int,Int},Float64}() 
+    if rmp.np.dists == nothing
+        dists = Dict{Tuple{Int,Int},Float64}()
+    else
+        dists = rmp.np.dists
+    end
     outneighbors = [Int[] for u in 1:nstns]
     inneighbors  = [Int[] for u in 1:nstns]
     for u in 1:nstns
@@ -122,10 +161,12 @@ function SubProblemCP(
             !in(u, nodeset) && !in(v, nodeset) && continue
             d = edgecost(np, u, v)
             if d < maxdist
-                dists[u,v] = d
+                if rmp.np.dists == nothing
+                    dists[u,v] = d
+                    dists[v,u] = d
+                end
                 push!(outneighbors[u], v)
                 push!(inneighbors[v], u)
-                dists[v,u] = d
                 push!(outneighbors[v], u)
                 push!(inneighbors[u], v)
             end

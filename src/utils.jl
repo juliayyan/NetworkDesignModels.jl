@@ -57,7 +57,9 @@ function edgecost(
         u::Int,
         v::Int
     )
-    if np.gridtype == :latlong
+    if np.dists != nothing
+        return haskey(np.dists, (u,v)) ? np.dists[u,v] : Inf 
+    elseif np.gridtype == :latlong
         return TN.haversinedistance(np, u, v)
     elseif np.gridtype == :euclidean
         return norm(np.latlon[u,:] - np.latlon[v,:])
