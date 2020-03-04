@@ -58,7 +58,7 @@ function SubProblem(
         d = edgecost(np, u, v)
         b = dir(np, u, v)
         sim = dot(direction, b) / norm(direction) / norm(b)
-        if (d < maxdist) && (1 - abs(sim) < delta)
+        if (d < maxdist) && (1 - abs(sim) <= delta)
             if sim >= 0
                 if rmp.np.dists == nothing
                     dists[u,v] = d
