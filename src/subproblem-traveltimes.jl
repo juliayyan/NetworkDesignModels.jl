@@ -27,7 +27,12 @@ function addlazytraveltimes(
                             for v in intersect(outneighbors[u], pathsubset)) 
                         for u in pathsubset)
             else
-                expr = sum(edg[pathsubset[k-1],pathsubset[k]] for k in 2:length(pathsubset))
+                expr = 0
+                for j in 1:length(pathsubset)-1, k in (j+1):length(pathsubset)
+                    if in(pathsubset[k], outneighbors[pathsubset[j]])
+                        expr += edg[pathsubset[j], pathsubset[k]]
+                    end
+                end
             end
             JuMP.@lazyconstraint(cb, 
                 expr <= length(pathsubset) - 2)
