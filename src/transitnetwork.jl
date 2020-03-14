@@ -6,6 +6,7 @@ mutable struct TransitNetwork
     latlon::Array{Float64,2}
     gridtype::Symbol
     dists
+    spdists
 end
 
 function Base.show(io::IO, np::TransitNetwork; offset::String="")

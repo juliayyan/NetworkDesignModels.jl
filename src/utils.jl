@@ -68,6 +68,18 @@ function edgecost(
     end
 end
 
+function spcost(
+    np::TransitNetwork,
+    u::Int,
+    v::Int
+)
+    if np.spdists != nothing
+        return haskey(np.spdists, (u,v)) ? np.spdists[u,v] : Inf
+    else
+        return edgecost(np,u,v)
+    end
+end
+
 """
 Returns true if the commute `u` -> `w` -> `v` obeys `distparam` and `angleparam`.
 
