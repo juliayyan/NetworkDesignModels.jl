@@ -9,7 +9,7 @@ function addlazytraveltimes(
     simplepath::Vector{Int})
     for len in 2:length(simplepath), p_i in 1:(length(simplepath)-len)
         p_j = p_i+len
-        directdist = edgecost(np,simplepath[p_i],simplepath[p_j]) 
+        directdist = spcost(np,simplepath[p_i],simplepath[p_j]) 
         pathsubset = simplepath[p_i:p_j]
         subsetcost = linecost(np,pathsubset)
         if subsetcost > distparam*directdist
