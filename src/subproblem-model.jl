@@ -347,3 +347,36 @@ function warmstart(sp::SubProblem, path::Vector{Int})
         JuMP.setvalue(sp.edg[path[i-1],path[i]], 1)
     end
 end
+
+function trywarmstart(sp::SubProblem, trypath::Vector{Int})
+    warmstarts = Vector{Vector{Int}}()
+    curpath = Vector{Int}()
+    for k in 2:length(trypath)
+        if in(trypath[k], sp.outneighbors[trypath[k-1]])
+            if length(curpath) == 0
+                push!(curpath, trypath[k-1])
+            end
+            push!(curpath, trypath[k])
+        elseif length(curpath) > 0
+            push!(warmstarts, curpath)
+            curpath = Vector{Int}()
+        end
+        if (k == length(trypath)) && (length(curpath) > 0)
+            push!(warmstarts, curpath)
+        end
+    end
+    objs = Vector{Float64}()
+    for path in warmstarts
+        obj = 0
+        for u in path, v in path
+            try
+                obj += JuMP.getdual(rmp.model[:choseline][(u,v)])
+            catch
+            end
+        end
+        push!(objs, obj)
+    end
+    if length(objs) > 0
+        warmstart(sp, warmstarts[findmax(objs)[2]])
+    end
+end
