@@ -19,7 +19,7 @@ function addlazytraveltimes(
             else 
                 mincost = insertionheuristic(np,pathsubset)    
             end
-            if mincost >= subsetcost
+            if mincost >= distparam*directdist
                 expr = sum(
                     length(intersect(outneighbors[u], pathsubset)) == 0 ? 
                         0 : 
