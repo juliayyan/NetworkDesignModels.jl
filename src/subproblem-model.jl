@@ -170,9 +170,9 @@ function generatecolumn(
     costwt = rmp.options.costwts[f]
     p = JuMP.getdual(rmp.model[:choseline])
     q = max(1e-3,JuMP.getdual(rmp.model[:bcon]))
-    pi2a = JuMP.getdual(rmp.model[:freq2a])
-    pi2b = JuMP.getdual(rmp.model[:freq2b])
     if sp.srv2 != nothing
+        pi2a = JuMP.getdual(rmp.model[:freq2a])
+        pi2b = JuMP.getdual(rmp.model[:freq2b])
         JuMP.@objective(sp.model,
             Max,
             freqwt * sum(p[(u,v)] * sp.srv[(u,v)] for (u,v) in commutes(rmp)) +
