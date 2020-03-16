@@ -5,13 +5,14 @@ Use transfermodel(...) to the additional variables and constraints needed for
 modelling single-transfers.
 """
 function basemodel(
-        np::TransitNetwork,
+        rmp::MasterProblem,
         inneighbors::Vector{Vector{Int}},
         outneighbors::Vector{Vector{Int}},
         maxlength::Int, # maximum number of edges in a path
         linelist::Vector{Vector{Int}},
         solver
     )
+    np = rmp.np
     nstns = np.nstations
     
     sp = JuMP.Model(solver=solver)
@@ -20,7 +21,7 @@ function basemodel(
         src[u=1:nstns], Bin
         snk[u=1:nstns], Bin
         edg[u=1:nstns, v=outneighbors[u]], Bin
-        0 <= srv[(u,v)=commutes(np)] <= 1
+        0 <= srv[(u,v)=commutes(rmp)] <= 1
     end
     
     # path constraints
@@ -44,8 +45,8 @@ function basemodel(
         ingraph[u=1:nstns],
         src[u] + sum(edg[u2,u] for u2 in inneighbors[u]))
     JuMP.@constraints sp begin
-        [(u,v)=commutes(np)], srv[(u,v)] <= ingraph[u]
-        [(u,v)=commutes(np)], srv[(u,v)] <= ingraph[v]
+        [(u,v)=commutes(rmp)], srv[(u,v)] <= ingraph[u]
+        [(u,v)=commutes(rmp)], srv[(u,v)] <= ingraph[v]
     end
 
     # remove any lines that already exist
@@ -89,24 +90,25 @@ Use basemodel(...) for constructing a subproblem model.
     `sum(f[u,v] for u in In(v))`.
 """
 function transfermodel(
-        np::TransitNetwork,
+        rmp::MasterProblem,
         sp::JuMP.Model,
         srv,
         ingraph
     )
+    np = rmp.np
     nstns = np.nstations
 
-    JuMP.@variable(sp, 0 <= srv2a[(u,v)=commutes(np),w=np.xfrstns[(u,v)]] <= 1)
-    JuMP.@variable(sp, 0 <= srv2b[(u,v)=commutes(np),w=np.xfrstns[(u,v)]] <= 1)
+    JuMP.@variable(sp, 0 <= srv2a[(u,v)=commutes(rmp),w=np.xfrstns[(u,v)]] <= 1)
+    JuMP.@variable(sp, 0 <= srv2b[(u,v)=commutes(rmp),w=np.xfrstns[(u,v)]] <= 1)
 
     JuMP.@constraints sp begin
-        [(u,v)=commutes(np),w=np.xfrstns[(u,v)]], srv2a[(u,v),w] <= ingraph[u]
-        [(u,v)=commutes(np),w=np.xfrstns[(u,v)]], srv2a[(u,v),w] <= ingraph[w]
-        [(u,v)=commutes(np),w=np.xfrstns[(u,v)]], srv2a[(u,v),w] <= 1-ingraph[v]
-        [(u,v)=commutes(np),w=np.xfrstns[(u,v)]], srv2b[(u,v),w] <= ingraph[v]
-        [(u,v)=commutes(np),w=np.xfrstns[(u,v)]], srv2b[(u,v),w] <= ingraph[w]
-        [(u,v)=commutes(np),w=np.xfrstns[(u,v)]], srv2b[(u,v),w] <= 1-ingraph[u]
-        [(u,v)=commutes(np)], srv[(u,v)] + sum(srv2a[(u,v),w] + srv2b[(u,v),w] for w in np.xfrstns[(u,v)]) <= 1
+        [(u,v)=commutes(rmp),w=np.xfrstns[(u,v)]], srv2a[(u,v),w] <= ingraph[u]
+        [(u,v)=commutes(rmp),w=np.xfrstns[(u,v)]], srv2a[(u,v),w] <= ingraph[w]
+        [(u,v)=commutes(rmp),w=np.xfrstns[(u,v)]], srv2a[(u,v),w] <= 1-ingraph[v]
+        [(u,v)=commutes(rmp),w=np.xfrstns[(u,v)]], srv2b[(u,v),w] <= ingraph[v]
+        [(u,v)=commutes(rmp),w=np.xfrstns[(u,v)]], srv2b[(u,v),w] <= ingraph[w]
+        [(u,v)=commutes(rmp),w=np.xfrstns[(u,v)]], srv2b[(u,v),w] <= 1-ingraph[u]
+        [(u,v)=commutes(rmp)], srv[(u,v)] + sum(srv2a[(u,v),w] + srv2b[(u,v),w] for w in np.xfrstns[(u,v)]) <= 1
     end
 
     (srv2a, srv2b)
@@ -173,20 +175,20 @@ function generatecolumn(
     if sp.srv2 != nothing
         JuMP.@objective(sp.model,
             Max,
-            freqwt * sum(p[(u,v)] * sp.srv[(u,v)] for (u,v) in commutes(sp.np)) +
+            freqwt * sum(p[(u,v)] * sp.srv[(u,v)] for (u,v) in commutes(rmp)) +
             xfrwt * sum(sum(pi2a[(u,v),w] * sp.srv2[1][(u,v),w] 
                     for w in rmp.np.xfrstns[(u,v)]) 
-                for (u,v) in commutes(sp.np)) +
+                for (u,v) in commutes(rmp)) +
             xfrwt * sum(sum(pi2b[(u,v),w] * sp.srv2[2][(u,v),w] 
                     for w in rmp.np.xfrstns[(u,v)]) 
-                for (u,v) in commutes(sp.np)) - 
+                for (u,v) in commutes(rmp)) - 
             costwt * q * sum(sp.dists[u,v]*sp.edg[u,v]
                 for u in 1:sp.np.nstations, v in sp.outneighbors[u]) # - capexpr
         )
     else
         JuMP.@objective(sp.model,
             Max,
-            freqwt * sum(p[(u,v)] * sp.srv[(u,v)] for (u,v) in commutes(sp.np)) -
+            freqwt * sum(p[(u,v)] * sp.srv[(u,v)] for (u,v) in commutes(rmp)) -
             costwt * q * sum(sp.dists[u,v]*sp.edg[u,v]
                 for u in 1:sp.np.nstations, v in sp.outneighbors[u]) # - capexpr
         )

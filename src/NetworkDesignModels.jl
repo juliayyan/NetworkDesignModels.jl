@@ -4,8 +4,8 @@ module NetworkDesignModels
     using LinearAlgebra, Parameters
 
     include("transitnetwork.jl")
-    include("utils.jl")
     include("masterproblem.jl")
+    include("utils.jl")
     include("subproblem.jl")
     include("subproblem-traveltimes.jl")
     include("subproblem-model.jl")

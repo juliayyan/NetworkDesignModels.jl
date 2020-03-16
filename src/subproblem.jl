@@ -79,11 +79,11 @@ function SubProblem(
     @assert !LightGraphs.is_cyclic(graph)
 
     sp, src, snk, edg, srv, ingraph = basemodel(
-        np, inneighbors, outneighbors, maxlength, rmp.linelist, solver
+        rmp, inneighbors, outneighbors, maxlength, rmp.linelist, solver
     )
 
     if nlegs == 2
-        srv2 = transfermodel(np, sp, srv, ingraph)
+        srv2 = transfermodel(rmp, sp, srv, ingraph)
     else
         srv2 = nothing
     end
@@ -174,10 +174,10 @@ function SubProblemCP(
     end
 
     sp, src, snk, edg, srv, ingraph = basemodel(
-        np, inneighbors, outneighbors, maxlength, rmp.linelist, solver
+        rmp, inneighbors, outneighbors, maxlength, rmp.linelist, solver
     )
     if nlegs == 2
-        srv2 = transfermodel(np, sp, srv, ingraph)
+        srv2 = transfermodel(rmp, sp, srv, ingraph)
     else
         srv2 = nothing
     end

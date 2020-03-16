@@ -1,4 +1,4 @@
-module ColumnGeneration2
+#=module ColumnGeneration2
 
     using TransitNetworks, NetworkDesignModels, Gurobi, JuMP
     using CSV, LinearAlgebra
@@ -74,3 +74,4 @@ module ColumnGeneration2
     end 
 
 end
+=#
