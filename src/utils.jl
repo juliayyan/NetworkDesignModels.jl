@@ -14,6 +14,21 @@ commutes(np::TransitNetwork) =
         vcat([[(min(u,v),max(u,v)) for v in nonzerodests(np,u)] for u in 1:np.nstations]...)
     )
 
+"""
+Return a vector of commutes with nonzero dual variables.
+"""
+function commutes(rmp::MasterProblem) 
+    p = JuMP.getdual(rmp.model[:choseline])
+    alluvs = commutes(rmp.np)
+    smalluvs = Vector{Tuple{Int,Int}}()
+    for (u,v) in alluvs
+        if p[(u,v)] > 0
+            push!(smalluvs, (u,v))
+        end
+    end
+    smalluvs
+end
+
 demand(np::TransitNetwork, uv::Tuple{Int,Int}) =
     np.odmatrix[uv[1],uv[2]] + np.odmatrix[uv[2],uv[1]]
 
