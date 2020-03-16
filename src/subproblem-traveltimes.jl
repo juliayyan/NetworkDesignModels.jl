@@ -14,10 +14,10 @@ function addlazytraveltimes(
         subsetcost = linecost(np,pathsubset)
         if subsetcost > distparam*directdist
             if detail && length(pathsubset) <= 4
-                mincost = minimum(insertionheuristic(np,pathsubset,start) 
+                mincost = minimum(insertionheuristic(np,pathsubset,start)[1]
                                   for start in 1:length(pathsubset))
             else 
-                mincost = insertionheuristic(np,pathsubset)    
+                mincost = insertionheuristic(np,pathsubset)[1]
             end
             if mincost >= distparam*directdist
                 expr = sum(
@@ -26,12 +26,22 @@ function addlazytraveltimes(
                         sum(edg[u,v] 
                             for v in intersect(outneighbors[u], pathsubset)) 
                         for u in pathsubset)
+                if !haskey(auxinfo, :travelshort)
+                    auxinfo[:travelshort] = 1
+                else
+                    auxinfo[:travelshort] += 1
+                end
             else
                 expr = 0
                 for j in 1:length(pathsubset)-1, k in (j+1):length(pathsubset)
                     if in(pathsubset[k], outneighbors[pathsubset[j]])
                         expr += edg[pathsubset[j], pathsubset[k]]
                     end
+                end
+                if !haskey(auxinfo, :traveltourn)
+                    auxinfo[:traveltourn] = 1
+                else
+                    auxinfo[:traveltourn] += 1
                 end
             end
             JuMP.@lazyconstraint(cb, 
@@ -57,14 +67,16 @@ function insertionheuristic(
     totalcost = 0
     this = nodes[start]
     visited[start] = true
+    path = Vector{Int}()
     while sum(.!visited) > 0
         candidates = nodes[.!visited]
-        costs = [NetworkDesignModels.edgecost(np,this,that) 
+        costs = [spcost(np,this,that) 
                  for that in candidates]
         totalcost += minimum(costs)
         that = candidates[findmin(costs)[2]]
         this = that
+        push!(path, this)
         visited[findfirst(nodes .== that)] .= true
     end
-    totalcost
+    totalcost, path
 end

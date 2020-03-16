@@ -181,6 +181,9 @@ function SubProblemCP(
     else
         srv2 = nothing
     end
+    JuMP.@constraint(sp, 
+        [u=1:np.nstations,v=outneighbors[u]],
+        edg[u,v] + edg[v,u] <= 1)
 
     auxinfo = Dict{Symbol,Any}()
     auxinfo[:nlazy] = 0
@@ -207,6 +210,12 @@ function SubProblemCP(
                            for u in cyclenodes)
                 JuMP.@lazyconstraint(cb, expr <= length(cyclenodes) - 1)
                 auxinfo[:nlazy] += 1
+                if !haskey(auxinfo, :cycle)
+                    auxinfo[:cycle] = 1
+                else
+                    auxinfo[:cycle] += 1
+                end
+                # break
             end
         end
         if traveltimes
