@@ -1,6 +1,7 @@
 function addlazytraveltimes(
     cb,
     np::TransitNetwork,
+    ingraph,
     edg,
     outneighbors::Vector{Vector{Int}},
     distparam::Float64,
@@ -20,12 +21,15 @@ function addlazytraveltimes(
                 mincost = insertionheuristic(np,pathsubset)[1]
             end
             if mincost >= distparam*directdist
+                expr = sum(ingraph[u] for u in pathsubset)
+                #=
                 expr = sum(
-                    length(intersect(outneighbors[u], pathsubset)) == 0 ? 
+                    length(intersect(outneighbors[u])) == 0 ? 
                         0 : 
                         sum(edg[u,v] 
-                            for v in intersect(outneighbors[u], pathsubset)) 
+                            for v in intersect(outneighbors[u])) 
                         for u in pathsubset)
+                =#
                 if !haskey(auxinfo, :travelshort)
                     auxinfo[:travelshort] = 1
                 else
@@ -45,9 +49,7 @@ function addlazytraveltimes(
                 end
             end
             JuMP.@lazyconstraint(cb, 
-                expr <= length(pathsubset) - 2)
-            # this is wrong, too restrictive
-            # sum(ingraph[u] for u in pathsubset) <= length(pathsubset) - 1)
+                expr <= JuMP.getvalue(expr) - 1)
             auxinfo[:nlazy] += 1
             break
         end
