@@ -215,7 +215,7 @@ function SubProblemCP(
                 else
                     auxinfo[:cycle] += 1
                 end
-                # break
+                break
             end
         end
         if traveltimes
