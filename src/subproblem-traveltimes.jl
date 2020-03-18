@@ -14,27 +14,17 @@ function addlazytraveltimes(
         pathsubset = simplepath[p_i:p_j]
         subsetcost = linecost(np,pathsubset)
         if subsetcost > distparam*directdist
-            if detail && length(pathsubset) <= 4
+            # calculate the shortest path connecting all nodes in this subset
+            if detail
                 mincost = minimum(insertionheuristic(np,pathsubset,start)[1]
                                   for start in 1:length(pathsubset))
             else 
                 mincost = insertionheuristic(np,pathsubset)[1]
             end
             if mincost >= distparam*directdist
+                # cut all paths containing all of these nodes
                 expr = sum(ingraph[u] for u in pathsubset)
-                #=
-                expr = sum(
-                    length(intersect(outneighbors[u])) == 0 ? 
-                        0 : 
-                        sum(edg[u,v] 
-                            for v in intersect(outneighbors[u])) 
-                        for u in pathsubset)
-                =#
-                if !haskey(auxinfo, :travelshort)
-                    auxinfo[:travelshort] = 1
-                else
-                    auxinfo[:travelshort] += 1
-                end
+                auxinfo[:travelshort] += 1
             else
                 expr = 0
                 for j in 1:length(pathsubset)-1, k in (j+1):length(pathsubset)
@@ -42,11 +32,7 @@ function addlazytraveltimes(
                         expr += edg[pathsubset[j], pathsubset[k]]
                     end
                 end
-                if !haskey(auxinfo, :traveltourn)
-                    auxinfo[:traveltourn] = 1
-                else
-                    auxinfo[:traveltourn] += 1
-                end
+                auxinfo[:traveltourn] += 1
             end
             JuMP.@lazyconstraint(cb, 
                 expr <= JuMP.getvalue(expr) - 1)

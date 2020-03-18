@@ -88,7 +88,7 @@ function SubProblem(
         srv2 = nothing
     end
 
-    auxinfo = Dict{Symbol,Any}()
+    auxinfo = initializedict()
 
     function cuttraveltimes(cb)
         visited = falses(np.nstations) # whether a node has been visited
@@ -110,7 +110,6 @@ function SubProblem(
         end
     end
     if traveltimes
-        auxinfo[:nlazy] = 0
         JuMP.addlazycallback(sp, cuttraveltimes)
     end
 
@@ -185,9 +184,8 @@ function SubProblemCP(
         [u=1:np.nstations,v=outneighbors[u]],
         edg[u,v] + edg[v,u] <= 1)
 
-    auxinfo = Dict{Symbol,Any}()
-    auxinfo[:nlazy] = 0
-
+    auxinfo = initializedict()
+    
     function removecycles(cb)
         visited = falses(np.nstations) # whether a node has been visited
         visited[setdiff(1:np.nstations, findall(JuMP.getvalue(ingraph) .> 0))] .= true
@@ -209,12 +207,8 @@ function SubProblemCP(
                                for v in intersect(outneighbors[u], cyclenodes))
                            for u in cyclenodes)
                 JuMP.@lazyconstraint(cb, expr <= length(cyclenodes) - 1)
+                auxinfo[:cycle] += 1
                 auxinfo[:nlazy] += 1
-                if !haskey(auxinfo, :cycle)
-                    auxinfo[:cycle] = 1
-                else
-                    auxinfo[:cycle] += 1
-                end
                 break
             end
         end
@@ -232,4 +226,14 @@ function SubProblemCP(
         np, sp, src, snk, edg, ingraph, srv, srv2,
         dists, outneighbors, inneighbors, nlegs, auxinfo
     )
+end
+
+function initializedict()
+    auxinfo = Dict{Symbol,Any}
+    auxinfo[:nlazy] = 0
+    auxinfo[:travelshort] = 0
+    auxinfo[:traveltourn] = 0
+    auxinfo[:cycle] = 0
+    auxinfo[:checknodes] = Dict{Vector{Int},Bool}()
+    auxinfo
 end
