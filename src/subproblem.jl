@@ -229,7 +229,7 @@ function SubProblemCP(
 end
 
 function initializedict()
-    auxinfo = Dict{Symbol,Any}
+    auxinfo = Dict{Symbol,Any}()
     auxinfo[:nlazy] = 0
     auxinfo[:travelshort] = 0
     auxinfo[:traveltourn] = 0
