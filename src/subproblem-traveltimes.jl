@@ -58,7 +58,7 @@ end
 
 """
 uses an insertion heuristic to calculate shortest path through nodes
-starting at nodes[1]
+starting at nodes[start]
 """
 function insertionheuristic(
     np::TransitNetwork, 
