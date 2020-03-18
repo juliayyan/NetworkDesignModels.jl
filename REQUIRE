@@ -1,8 +1,10 @@
 julia 0.7
 JuMP
 Gurobi
-TransitNetworks
 LightGraphs
 MathProgBase
 LinearAlgebra
 Parameters
+IterTools
+Combinatorics
+ProgressMeter
