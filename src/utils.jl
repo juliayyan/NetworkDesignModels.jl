@@ -14,6 +14,16 @@ commutes(np::TransitNetwork) =
         vcat([[(min(u,v),max(u,v)) for v in nonzerodests(np,u)] for u in 1:np.nstations]...)
     )
 
+function commutes(np::TransitNetwork, lb::Int)
+    coms = Vector{Tuple{Int,Int}}()
+    for (u,v) in commutes(np)
+        if demand(np, (u,v)) > lb
+            push!(coms, (u,v))
+        end
+    end
+    coms
+end
+
 """
 Return a vector of commutes with nonzero dual variables.
 """
