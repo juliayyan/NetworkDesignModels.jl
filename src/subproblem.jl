@@ -203,9 +203,13 @@ function SubProblemCP(
                 outneighbors
             )
             if length(cyclenodes) > 1
-                expr = sum(sum(edg[u,v]
-                               for v in intersect(outneighbors[u], cyclenodes))
-                           for u in cyclenodes)
+                if traveltimes && !checknodes(np, rmp.options.distparam, cyclenodes)
+                    expr = sum(ingraph[u] for u in cyclenodes)
+                else
+                    expr = sum(sum(edg[u,v]
+                                   for v in intersect(outneighbors[u], cyclenodes))
+                               for u in cyclenodes)
+                end
                 JuMP.@lazyconstraint(cb, expr <= length(cyclenodes) - 1)
                 auxinfo[:cycle] += 1
                 auxinfo[:nlazy] += 1

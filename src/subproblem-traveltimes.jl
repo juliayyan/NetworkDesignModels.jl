@@ -72,6 +72,56 @@ function insertionheuristic(
     end
     totalcost, nodes[path]
 end
+
+"""
+Returns arrays of commutes that cannot all coexist due to travel time restrictions
+"""
+function badcommutecombos(np::TransitNetwork, options::MasterOptions; 
+    k::Int = 2,
+    lb::Int = 100,
+    prevnodes::Vector{Vector{Int}} =  Vector{Vector{Int}}())
+    @assert k <= 4
+    coms = commutes(np, lb)
+    badcoms = []
+    indices = IterTools.subsets(1:length(coms), k)
+    ProgressMeter.@showprogress for ids in indices
+        nodes = unique(vcat([vcat(com...) for com in coms[ids]]...))
+        if any([issubset(nodes, pn) for pn in prevnodes])
+            continue
+        end
+        !checknodes(np, options.distparam, nodes) && push!(badcoms, coms[ids])
     end
-    totalcost, path
+    badcoms
+end
+
+"check whether some path connecting all of `nodes` is feasible for travel time restrictions"
+function checknodes(np::TransitNetwork, distparam::Float64, nodes::Vector{Int})
+    nnodes = length(nodes)
+    if nnodes <= 4
+        nodepaths = Combinatorics.permutations(nodes)
+    else
+        tries = [insertionheuristic(np,nodes,k) for k in 1:nnodes]
+        costs = [tr[1] for tr in tries]
+        nodepaths = [tr[2] for tr in tries]
+        nodepaths = [nodepaths[findmin(costs)[2]]]
+    end
+    for path in nodepaths
+        if checkline(np, distparam, path)
+            return true
+        end
+    end
+    false
+end
+
+"check whether the given `path` is feasible for travel time restrictions"
+function checkline(np::TransitNetwork, distparam::Float64, path::Vector{Int})
+    nnodes = length(path)
+    for o in 1:nnodes, d in (o+1):nnodes
+        thiscost = sum([spcost(np, path[l-1], path[l]) for l in (o+1):d])
+        mincost = spcost(np, path[o], path[d])
+        if thiscost > distparam * mincost
+            return false
+        end
+    end
+    true
 end

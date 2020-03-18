@@ -2,6 +2,7 @@ module NetworkDesignModels
 
     import JuMP, Gurobi, LightGraphs, MathProgBase
     using LinearAlgebra, Parameters
+    using IterTools, Combinatorics, ProgressMeter
 
     include("transitnetwork.jl")
     include("masterproblem.jl")
