@@ -64,21 +64,28 @@ function insertionheuristic(
     np::TransitNetwork, 
     nodes::Vector{Int},
     start::Int = 1)
-    @assert length(unique(nodes)) == length(nodes)
-    visited = [false for u in nodes]
+    nnodes = length(nodes)
+    @assert length(unique(nodes)) == nnodes
+    visited = falses(nnodes)
     totalcost = 0
-    this = nodes[start]
+    this = start
     visited[start] = true
     path = Vector{Int}()
+    push!(path, start)
     while sum(.!visited) > 0
-        candidates = nodes[.!visited]
-        costs = [spcost(np,this,that) 
-                 for that in candidates]
-        totalcost += minimum(costs)
-        that = candidates[findmin(costs)[2]]
+        costs = [visited[that] ? Inf : spcost(np,nodes[this],nodes[that]) 
+                 for that in 1:nnodes]
+        mincost, that = findmin(costs)
+        if mincost == Inf
+            return Inf, Int[]
+        end
+        totalcost += mincost
         this = that
         push!(path, this)
-        visited[findfirst(nodes .== that)] .= true
+        visited[that] = true
+    end
+    totalcost, nodes[path]
+end
     end
     totalcost, path
 end
