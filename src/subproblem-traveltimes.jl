@@ -77,11 +77,15 @@ end
 Returns arrays of commutes that cannot all coexist due to travel time restrictions
 """
 function badcommutecombos(np::TransitNetwork, options::MasterOptions; 
+    rmp = nothing,
     k::Int = 2,
     lb::Int = 100,
     prevnodes::Vector{Vector{Int}} =  Vector{Vector{Int}}())
     @assert k <= 4
     coms = commutes(np, lb)
+    if rmp != nothing
+        coms = intersect(coms, commutes(rmp))
+    end
     badcoms = []
     indices = IterTools.subsets(1:length(coms), k)
     ProgressMeter.@showprogress for ids in indices
