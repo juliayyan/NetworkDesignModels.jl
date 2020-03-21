@@ -67,10 +67,13 @@ function basemodel(
         end
         if linein(simplepath, linelist)
             for pathelim in [simplepath, reverse(simplepath)]
-                inexpr = sum(edg[pathelim[k-1],pathelim[k]] for k in 2:length(pathelim))
-                npathedges = JuMP.getvalue(inexpr)
-                outexpr = (length(edg) - npathedges) - (sum(edg) - inexpr)
-                JuMP.@lazyconstraint(cb, inexpr + outexpr <= length(edg) - length(simplepath)/2)
+                try
+                    inexpr = sum(edg[pathelim[k-1],pathelim[k]] for k in 2:length(pathelim))
+                    npathedges = JuMP.getvalue(inexpr)
+                    outexpr = (length(edg) - npathedges) - (sum(edg) - inexpr)
+                    JuMP.@lazyconstraint(cb, inexpr + outexpr <= length(edg) - length(simplepath)/2)
+                catch
+                end
             end
         end
     end
