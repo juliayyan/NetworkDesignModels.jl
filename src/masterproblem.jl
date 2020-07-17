@@ -3,7 +3,9 @@
     nfreqs::Int                 = 1
     freqwts::Vector{Float64}    = [1.0]
     xfrwts::Vector{Float64}     = [1.0]
-    costwts::Vector{Float64}    = [1.0]    
+    costwts::Vector{Float64}    = [1.0]
+    constrainedg::Bool          = false
+    ninitial::Int               = 0   
     angleparam::Float64         = -1.0 # deprecated by default
     distparam::Float64          = 1.5
     modeltype::Symbol           = :lp
@@ -136,27 +138,42 @@ function mastermodel(
                     for f in 1:nfreqs))
     end
 
-    # capacity constraint
-    #=edgelines = Dict{Tuple{Int,Int},Vector{Int}}()
-    for l in 1:nlines, k in 2:length(linelist[l])
-        u = linelist[l][k-1]
-        v = linelist[l][k]
-        edg = (min(u,v), max(u,v))
-        if haskey(edgelines, edg)
-            push!(edgelines[edg], l)
-        else
-            edgelines[edg] = [l]
+    if options.constrainedg
+        edgelines = Dict{Tuple{Int,Int},Vector{Int}}()
+        for l in 1:nlines, k in 2:length(linelist[l])
+            u = linelist[l][k-1]
+            v = linelist[l][k]
+            edg = (min(u,v), max(u,v))
+            if haskey(edgelines, edg)
+                push!(edgelines[edg], l)
+            else
+                edgelines[edg] = [l]
+            end
         end
-    end
-    edges = keys(edgelines)
-    for edg in edges
-        if length(edgelines[edg]) == 1
-            delete!(edgelines, edg)
+        edges = keys(edgelines)
+        coeffs = Dict{Tuple{Int,Int},Vector{Float64}}()
+        for edg in edges
+            if length(edgelines[edg]) == 1
+                delete!(edgelines, edg)
+            else
+                coeffs[edg] = ones(length(edgelines[edg]))
+                # allow for overlap between lines in original key network
+                denom = length(intersect(1:options.ninitial, edgelines[edg]))
+                if denom > 1
+                    for l in 1:length(edgelines[edg])
+                        if edgelines[edg][l] <= options.ninitial
+                            coeffs[edg][l] = 1/denom
+                        end
+                    end
+                end
+            end
         end
+        JuMP.@constraint(rmp,
+            ccon[edg in keys(edgelines)], 
+            sum(sum(coeffs[edg][l]*x[edgelines[edg][l],f] 
+                    for l in 1:length(edgelines[edg])) 
+                for f in 1:nfreqs) <= 1)
     end
-    JuMP.@constraint(rmp, 
-        ccon[edg in keys(edgelines)], 
-        sum(x[l] for l in edgelines[edg]) <= 1)=#
     
     # choose one frequency
     if nfreqs > 1

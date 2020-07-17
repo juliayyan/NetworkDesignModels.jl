@@ -163,16 +163,23 @@ function generatecolumn(
         trackingstatuses::Vector{Symbol} = Symbol[],
         trackingtimegrid::Int = 5
     )
-    #=capexpr = 0
-    for key in keys(cdual)
-        (u,v) = key[1]
-        capexpr += cdual[(u,v)] * (sp.edg[u,v] + sp.edg[v,u])
-    end=#
     freqwt = rmp.options.freqwts[f]
     xfrwt = rmp.options.xfrwts[f]
     costwt = rmp.options.costwts[f]
     p = JuMP.getdual(rmp.model[:choseline])
     q = max(1e-3,JuMP.getdual(rmp.model[:bcon]))
+    edgexpr = 0
+    if rmp.options.constrainedg
+        for key in keys(rmp.model[:ccon])
+            (u,v) = key[1]
+            if in(v, sp.outneighbors[u])
+                edgexpr += JuMP.getdual(rmp.model[:ccon][(u,v)]) * sp.edg[u,v]
+            end
+            if in(u, sp.outneighbors[v])
+                edgexpr += JuMP.getdual(rmp.model[:ccon][(u,v)]) * sp.edg[v,u]
+            end
+        end
+    end
     if sp.srv2 != nothing
         pi2a = JuMP.getdual(rmp.model[:freq2a])
         pi2b = JuMP.getdual(rmp.model[:freq2b])
@@ -186,14 +193,14 @@ function generatecolumn(
                     for w in rmp.np.xfrstns[(u,v)]) 
                 for (u,v) in commutes(rmp)) - 
             costwt * q * sum(sp.dists[u,v]*sp.edg[u,v]
-                for u in 1:sp.np.nstations, v in sp.outneighbors[u]) # - capexpr
+                for u in 1:sp.np.nstations, v in sp.outneighbors[u]) - edgexpr
         )
     else
         JuMP.@objective(sp.model,
             Max,
             freqwt * sum(p[(u,v)] * sp.srv[(u,v)] for (u,v) in commutes(rmp)) -
             costwt * q * sum(sp.dists[u,v]*sp.edg[u,v]
-                for u in 1:sp.np.nstations, v in sp.outneighbors[u]) # - capexpr
+                for u in 1:sp.np.nstations, v in sp.outneighbors[u]) - edgexpr
         )
     end
 
