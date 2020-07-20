@@ -37,7 +37,7 @@ function SubProblem(
         solver = Gurobi.GurobiSolver(OutputFlag = 0),
         maxdist::Float64 = 0.5,
         direction::Vector{Float64} = [0.0,1.0],
-        delta::Float64 = 1.0,
+        delta::Float64 = 1.0, # 1 - (delta in paper) -- 1.0 in the code corresponds to 0.0 in the paper
         maxlength::Int = 30, # maximum number of edges in a path
         traveltimes::Bool = false,
         detail::Bool = false
