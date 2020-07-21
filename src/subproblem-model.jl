@@ -5,12 +5,14 @@ Use transfermodel(...) to the additional variables and constraints needed for
 modelling single-transfers.
 """
 function basemodel(
-        np::TN.TransitNetworkProblem,
+        rmp::MasterProblem,
         inneighbors::Vector{Vector{Int}},
         outneighbors::Vector{Vector{Int}},
         maxlength::Int, # maximum number of edges in a path
+        linelist::Vector{Vector{Int}},
         solver
     )
+    np = rmp.np
     nstns = np.nstations
     
     sp = JuMP.Model(solver=solver)
@@ -19,7 +21,7 @@ function basemodel(
         src[u=1:nstns], Bin
         snk[u=1:nstns], Bin
         edg[u=1:nstns, v=outneighbors[u]], Bin
-        0 <= srv[u=1:nstns, v=nonzerodests(np,u)] <= 1
+        0 <= srv[(u,v)=commutes(rmp)] <= 1
     end
     
     # path constraints
@@ -43,9 +45,39 @@ function basemodel(
         ingraph[u=1:nstns],
         src[u] + sum(edg[u2,u] for u2 in inneighbors[u]))
     JuMP.@constraints sp begin
-        [u=1:nstns, v=nonzerodests(np,u)], srv[u,v] <= ingraph[u]
-        [u=1:nstns, v=nonzerodests(np,u)], srv[u,v] <= ingraph[v]
+        [(u,v)=commutes(rmp)], srv[(u,v)] <= ingraph[u]
+        [(u,v)=commutes(rmp)], srv[(u,v)] <= ingraph[v]
     end
+
+    # remove any lines that already exist
+    function removeduplicates(cb)
+        visited = falses(np.nstations) # whether a node has been visited
+        visited[setdiff(1:np.nstations, findall(JuMP.getvalue(ingraph) .> 0))] .= true
+        source_val = findfirst(round.(JuMP.getvalue.(src)) .> 0.1)
+        sink_val = findfirst(round.(JuMP.getvalue.(snk)) .> 0.1)
+        @assert source_val > 0
+        @assert sink_val > 0
+        @assert source_val != sink_val
+        simplepath = getpath( # bus line
+            source_val, source_val, sink_val, edg, visited, outneighbors
+        )
+        # cycles found
+        if round(JuMP.getvalue(sum(edg)), digits=3) > length(simplepath)
+            return
+        end
+        if linein(simplepath, linelist)
+            for pathelim in [simplepath, reverse(simplepath)]
+                try
+                    inexpr = sum(edg[pathelim[k-1],pathelim[k]] for k in 2:length(pathelim))
+                    npathedges = JuMP.getvalue(inexpr)
+                    outexpr = (length(edg) - npathedges) - (sum(edg) - inexpr)
+                    JuMP.@lazyconstraint(cb, inexpr + outexpr <= length(edg) - length(simplepath)/2)
+                catch
+                end
+            end
+        end
+    end
+    JuMP.addlazycallback(sp, removeduplicates)
 
     sp, src, snk, edg, srv, ingraph
 end
@@ -54,76 +86,30 @@ end
 Adds transferring variables and constraints to subproblem model `sp`.
 
 Use basemodel(...) for constructing a subproblem model.
-
-### Args
-* `srv[u,v]` corresponds to `g[1][u,v]` (`g[u,v]` in the direct-route model).
-* `ingraph` is a vector where `ingraph[u]` corresponds to a JuMP expression for
-    `sum(f[u,v] for u in In(v))`.
-* `xfrstops_uw[u,v]` contains the `w`s that have a connection from `u`, 
-    separated into vectors corresponding to active [1] and inactive [2] lines.
-* `xfrstops_wv[u,v]` contains the `w`s that have a connection to `v`,
-    separated into vectors corresponding to active [1] and inactive [2] lines.
 """
 function transfermodel(
-        np::TN.TransitNetworkProblem,
+        rmp::MasterProblem,
         sp::JuMP.Model,
         srv,
-        ingraph,
-        xfrstops_uw,
-        xfrstops_wv
+        ingraph
     )
+    np = rmp.np
     nstns = np.nstations
-    ncases = 4
 
-    # In the single-transfers model, srv2[u,v,i] corresponds to g[1+i][u,v].
-    JuMP.@variable(sp, 0 <= srv2[u=1:nstns, v=nonzerodests(np,u),1:ncases] <= 1)
+    JuMP.@variable(sp, 0 <= srv2a[(u,v)=commutes(rmp),w=np.xfrstns[(u,v)]] <= 1)
+    JuMP.@variable(sp, 0 <= srv2b[(u,v)=commutes(rmp),w=np.xfrstns[(u,v)]] <= 1)
 
     JuMP.@constraints sp begin
-        [u=1:nstns, v=nonzerodests(np,u)], srv2[u,v,1] <= ingraph[u]
-        [u=1:nstns, v=nonzerodests(np,u)], srv2[u,v,2] <= ingraph[v]
-        [u=1:nstns, v=nonzerodests(np,u)], srv2[u,v,3] <= ingraph[u]
-        [u=1:nstns, v=nonzerodests(np,u)], srv2[u,v,4] <= ingraph[v]
-        [u=1:nstns, v=nonzerodests(np,u)],
-            srv[u,v] + sum(srv2[u,v,i] for i in 1:ncases) <= 1
-        [u=1:nstns, v=nonzerodests(np,u)], 
-            srv2[u,v,1] <= ((length(xfrstops_wv[u,v][1]) == 0) ?
-                            0 : sum(ingraph[w] for w in xfrstops_wv[u,v][1]))
-        [u=1:nstns, v=nonzerodests(np,u)],     
-            srv2[u,v,2] <= ((length(xfrstops_uw[u,v][1]) == 0) ?
-                            0 : sum(ingraph[w] for w in xfrstops_uw[u,v][1]))
-        [u=1:nstns, v=nonzerodests(np,u)], 
-            srv2[u,v,3] <= ((length(xfrstops_wv[u,v][2]) == 0) ?
-                            0 : sum(ingraph[w] for w in xfrstops_wv[u,v][2]))
-        [u=1:nstns, v=nonzerodests(np,u)], 
-            srv2[u,v,4] <= ((length(xfrstops_uw[u,v][2]) == 0) ?
-                            0 : sum(ingraph[w] for w in xfrstops_uw[u,v][2]))
+        [(u,v)=commutes(rmp),w=np.xfrstns[(u,v)]], srv2a[(u,v),w] <= ingraph[u]
+        [(u,v)=commutes(rmp),w=np.xfrstns[(u,v)]], srv2a[(u,v),w] <= ingraph[w]
+        [(u,v)=commutes(rmp),w=np.xfrstns[(u,v)]], srv2a[(u,v),w] <= 1-ingraph[v]
+        [(u,v)=commutes(rmp),w=np.xfrstns[(u,v)]], srv2b[(u,v),w] <= ingraph[v]
+        [(u,v)=commutes(rmp),w=np.xfrstns[(u,v)]], srv2b[(u,v),w] <= ingraph[w]
+        [(u,v)=commutes(rmp),w=np.xfrstns[(u,v)]], srv2b[(u,v),w] <= 1-ingraph[u]
+        [(u,v)=commutes(rmp)], srv[(u,v)] + sum(srv2a[(u,v),w] + srv2b[(u,v),w] for w in np.xfrstns[(u,v)]) <= 1
     end
 
-    srv2
-end
-
-"""
-Returns a vector of dictionaries `coeffs` for the subproblem objective function.
-
-It is defined such that `coeffs[i][u,v]` corresponds to the objective
-coefficient for variable `srv2[u,v,i]` ("g[i+1][u,v]" in the writeup).
-"""
-function spcoeffs(
-        rmp::MasterProblem,
-        sp::SubProblem
-    )
-    if sp.xfrstops_uw == nothing || sp.xfrstops_wv == nothing 
-            error("Can't create coefficients for the direct-route model.")
-    end
-    coeffs = [Dict{Tuple{Int,Int},Float64}() for i in 1:4]
-    for u in 1:rmp.np.nstations, v in nonzerodests(rmp.np,u)
-        coeffs[1][u,v] = min(1.0, length(sp.xfrstops_wv[u,v][1])) # active
-        coeffs[2][u,v] = min(1.0, length(sp.xfrstops_uw[u,v][1])) # active
-        coeffs[3][u,v] = min(0.5, length(sp.xfrstops_wv[u,v][2])) # inactive
-        coeffs[4][u,v] = min(0.5, length(sp.xfrstops_uw[u,v][2])) # inactive
-    end
-    
-    coeffs
+    (srv2a, srv2b)
 end
 
 """
@@ -133,31 +119,65 @@ This function helps solve the subproblem many times just changing the objective
 without rebuilding the model.
 
 ### Keyword Arguments
-* `coeffs`: a tuple (coeffs_uw, coeffs_wv) for the p variables.
+* `sp`: the SubProblem instance
+* `rmp`: the MasterProblem from which we get the duals
+* `f`: which frequency level to optimize for
 * `trackingstatuses`: for tracking information through solver callbacks.
+* `trackingtimegrid`: how often to save tracking data in seconds
 
 ### Returns
 A `path::Vector{Int}` of the stations along the profitable line.
 """
 function generatecolumn(
         sp::SubProblem, 
-        p,
-        q;
+        rmp::MasterProblem;
+        f::Int = 1,
         trackingstatuses::Vector{Symbol} = Symbol[],
-        trackingtimegrid::Int = 5,
-        coeffs::Vector{Dict{Tuple{Int,Int},Float64}} = 
-            fill(Dict(k => 0.5 for k in keys(p)),4)
+        trackingtimegrid::Int = 5
     )
-    JuMP.@objective(sp.model,
-        Max,
-        sum(sum(p[u,v] * (sp.srv[u,v] + (sp.nlegs == 1 ? 0 :  
-                                         sum(coeffs[i][u,v]*sp.srv2[u,v,i] for i in 1:4)))
-            for v in nonzerodests(sp.np,u))
-        for u in 1:sp.np.nstations) - 
-        q * sum(sp.dists[u,v]*sp.edg[u,v]
-            for u in 1:sp.np.nstations, v in sp.outneighbors[u])
-    )
+    # set objective of subproblem based on dual values
+    freqwt = rmp.options.freqwts[f]
+    xfrwt = rmp.options.xfrwts[f]
+    costwt = rmp.options.costwts[f]
+    p = JuMP.getdual(rmp.model[:choseline])
+    q = max(1e-3,JuMP.getdual(rmp.model[:bcon]))
+    edgexpr = 0
+    if rmp.options.constrainedg
+        for key in keys(rmp.model[:ccon])
+            (u,v) = key[1]
+            if in(v, sp.outneighbors[u])
+                edgexpr += JuMP.getdual(rmp.model[:ccon][(u,v)]) * sp.edg[u,v]
+            end
+            if in(u, sp.outneighbors[v])
+                edgexpr += JuMP.getdual(rmp.model[:ccon][(u,v)]) * sp.edg[v,u]
+            end
+        end
+    end
+    if sp.srv2 != nothing
+        pi2a = JuMP.getdual(rmp.model[:freq2a])
+        pi2b = JuMP.getdual(rmp.model[:freq2b])
+        JuMP.@objective(sp.model,
+            Max,
+            freqwt * sum(p[(u,v)] * sp.srv[(u,v)] for (u,v) in commutes(rmp)) +
+            xfrwt * sum(sum(pi2a[(u,v),w] * sp.srv2[1][(u,v),w] 
+                    for w in rmp.np.xfrstns[(u,v)]) 
+                for (u,v) in commutes(rmp)) +
+            xfrwt * sum(sum(pi2b[(u,v),w] * sp.srv2[2][(u,v),w] 
+                    for w in rmp.np.xfrstns[(u,v)]) 
+                for (u,v) in commutes(rmp)) - 
+            costwt * q * sum(sp.dists[u,v]*sp.edg[u,v]
+                for u in 1:sp.np.nstations, v in sp.outneighbors[u]) - edgexpr
+        )
+    else
+        JuMP.@objective(sp.model,
+            Max,
+            freqwt * sum(p[(u,v)] * sp.srv[(u,v)] for (u,v) in commutes(rmp)) -
+            costwt * q * sum(sp.dists[u,v]*sp.edg[u,v]
+                for u in 1:sp.np.nstations, v in sp.outneighbors[u]) - edgexpr
+        )
+    end
 
+    # track solve information
     t0 = time()
     for tracking in trackingstatuses
         if tracking == :Intermediate
@@ -184,14 +204,20 @@ function generatecolumn(
         end
     end
 
+    # solve
     JuMP.solve(sp.model)
     sp.auxinfo[:endtime] = time() - t0
 
-    path = getpath(sp) 
-    if ((length(path) > 0) &&
-        (round(sum(JuMP.getvalue(sp.edg))) != length(path) - 1))
-        error("Dual solution is not a valid path")
-    end 
+    # save data
+    if JuMP.getobjectivevalue(sp.model) > 0
+        path = getpath(sp) 
+        if ((length(path) > 0) &&
+            (round(sum(JuMP.getvalue(sp.edg))) != length(path) - 1))
+            error("Dual solution is not a valid path")
+        end
+    else
+        path = Vector{Int}()
+    end
 
     path
 end 
@@ -203,7 +229,7 @@ It starts with edge-restricted networks and iteratively builds up
 relevant sections of the network.
 
 ### Keyword Arguments
-* `coeffs`: A tuple (coeffs_uw, coeffs_wv) for the p variables.
+* `rmp`: the MasterProblem to generate a column for.  Builds subproblems internally
 * `directions`: A vector of directions z to run the subproblem with
     preprocessed edge set E(z, delta).
 * `nlegs`: The (maximum) number of legs of each commute.
@@ -226,10 +252,6 @@ A `(path, auxinfo)` tuple.
 """
 function generatecolumn(
         rmp::MasterProblem; 
-        coeffs::NTuple{2, Dict{Tuple{Int,Int},Float64}} = (
-            Dict(k => 0.5 for k in keys(p)),
-            Dict(k => 0.5 for k in keys(p))
-        ),
         directions::Vector{Vector{Float64}} = [
             [ 1.0, 0.0], [ 1.0, 0.5],
             [ 1.0, 1.0], [ 0.5, 1.0],
@@ -254,13 +276,9 @@ function generatecolumn(
 
     nstns = rmp.np.nstations
     dists = [
-        edgecost(rmp.np,u,v,rmp.gridtype) for u in 1:nstns, v in 1:nstns
+        edgecost(rmp.np,u,v) for u in 1:nstns, v in 1:nstns
     ]
     neighbors = [setdiff(find(dists[u,:] .< maxdist),u) for u in 1:nstns]
-
-    p = JuMP.getdual(rmp.choseline)
-    q = JuMP.getdual(rmp.bcon)
-    # s = JuMP.getdual(rmp.choseub)
 
     # compute warm start
     oldobj = 0.0
@@ -272,7 +290,7 @@ function generatecolumn(
                           solver = Gurobi.GurobiSolver(OutputFlag = 0)) 
                 for d in directions]
     sp_objs = [JuMP.getobjectivevalue(spw.model) for spw in sp_warm]
-    soln_warm = [generatecolumn(spw,p,q,coeffs=coeffs) for spw in sp_warm]
+    soln_warm = [generatecolumn(spw,rmp) for spw in sp_warm]
     nodeset = unique(union(soln_warm...))
     push!(auxinfo[:time], time() - t0)
     push!(auxinfo[:obj], maximum(sp_objs))
@@ -288,10 +306,7 @@ function generatecolumn(
                           nodeset = nodeset, 
                           solver = solver)
         warmstart(sp, path)
-        path = generatecolumn(sp,
-                              p,
-                              q,
-                              coeffs=coeffs,
+        path = generatecolumn(sp,rmp,
                               trackingstatuses=trackingstatuses)
         if round(JuMP.getobjectivevalue(sp.model),digits=3) == round(oldobj,digits=3)
             break
@@ -313,10 +328,48 @@ function generatecolumn(
     path, auxinfo 
 end
 
+"Warm starts a SubProblem with a given path"
 function warmstart(sp::SubProblem, path::Vector{Int})
     JuMP.setvalue(sp.src[path[1]]  , 1)
     JuMP.setvalue(sp.snk[path[end]], 1)
     for i in 2:length(path)
         JuMP.setvalue(sp.edg[path[i-1],path[i]], 1)
+    end
+end
+
+"""
+Warm starts a SubProblem with a proposed path from which we can construct a partial solution
+Necessary in case the proposed path is not actually feasible for the SubProblem
+"""
+function trywarmstart(sp::SubProblem, trypath::Vector{Int})
+    warmstarts = Vector{Vector{Int}}()
+    curpath = Vector{Int}()
+    for k in 2:length(trypath)
+        if in(trypath[k], sp.outneighbors[trypath[k-1]])
+            if length(curpath) == 0
+                push!(curpath, trypath[k-1])
+            end
+            push!(curpath, trypath[k])
+        elseif length(curpath) > 0
+            push!(warmstarts, curpath)
+            curpath = Vector{Int}()
+        end
+        if (k == length(trypath)) && (length(curpath) > 0)
+            push!(warmstarts, curpath)
+        end
+    end
+    objs = Vector{Float64}()
+    for path in warmstarts
+        obj = 0
+        for u in path, v in path
+            try
+                obj += JuMP.getdual(rmp.model[:choseline][(u,v)])
+            catch
+            end
+        end
+        push!(objs, obj)
+    end
+    if length(objs) > 0
+        warmstart(sp, warmstarts[findmax(objs)[2]])
     end
 end
