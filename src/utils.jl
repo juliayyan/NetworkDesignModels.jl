@@ -14,6 +14,9 @@ commutes(np::TransitNetwork) =
         vcat([[(min(u,v),max(u,v)) for v in nonzerodests(np,u)] for u in 1:np.nstations]...)
     )
 
+"""
+Return a vector of commutes with demand > lb
+"""
 function commutes(np::TransitNetwork, lb::Int)
     coms = Vector{Tuple{Int,Int}}()
     for (u,v) in commutes(np)
@@ -39,6 +42,7 @@ function commutes(rmp::MasterProblem)
     smalluvs
 end
 
+"Total demand between u and v"
 demand(np::TransitNetwork, uv::Tuple{Int,Int}) =
     np.odmatrix[uv[1],uv[2]] + np.odmatrix[uv[2],uv[1]]
 
@@ -68,6 +72,9 @@ Return whether `line` or its reversal appears in `linelist`.
 """
 linein(line::Vector{Int}, linelist::Vector{Vector{Int}}) = in(line, linelist) || in(reverse(line), linelist)
 
+"""
+The total distance along a line
+"""
 linecost(np::TransitNetwork, line::Vector{Int}) =
     sum(edgecost(np, line[i], line[i+1]) for i in 1:(length(line)-1))
 
@@ -93,11 +100,15 @@ function edgecost(
     end
 end
 
+"""
+Returns the distance of the shortest path between u and v.
+If distance is not specified in TransitNetwork, calculates a default
+value based on directly going from u to v via haversine or euclidean distance.
+"""
 function spcost(
     np::TransitNetwork,
     u::Int,
-    v::Int
-)
+    v::Int)
     if np.spdists != nothing
         return haskey(np.spdists, (u,v)) ? np.spdists[u,v] : Inf
     else
@@ -106,27 +117,8 @@ function spcost(
 end
 
 """
-Returns true if the commute `u` -> `w` -> `v` obeys `distparam` and `angleparam`.
-
-Uses `gridtype` to determine the distances and angle between `u,w` and `w,v`.
+Returns the direction of edge (u, v) projected onto cartesian coordinates
 """
-function validtransfer(
-        np::TransitNetwork, 
-        u::Int,
-        v::Int,
-        w::Int,
-        angleparam::Float64,
-        distparam::Float64
-    )
-    dir1 = dir(np, u, w)
-    dir2 = dir(np, w, v)
-    d_uw = edgecost(np, u, w)
-    d_wv = edgecost(np, w, v)
-    d_uv = edgecost(np, u, v)
-    (d_uw + d_wv <= distparam*d_uv) && 
-        (dot(dir1,dir2) / norm(dir1) / norm(dir2) >= angleparam)
-end
-
 function dir(np::TransitNetwork, u::Int, v::Int)
     if np.gridtype == :latlong
         latu, lonu = np.latlon[u,:]

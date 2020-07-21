@@ -1,3 +1,17 @@
+"""
+MasterOptions: A struct containing parameters for a MasterProblem
+
+### Keyword Arguments
+* `nlegs`: 1 (direct-route model) or 2 (single-transfer model)
+* `nfreqs`: number of frequency levels to choose from
+* `freqwts`: gamma in the paper; relative direct ridership coefficients
+* `xfrwts`: lambda in the paper; relative transferring ridership coefficients
+* `costwts`: rho in the paper; relative cost coefficients
+* `constrainedg`: whether to constrain edges to be used at most once
+* `ninitial`: the first `ninitial` lines in the `linelist` were used to start the master problem
+* `angleparam`: old parameter; keep to -1.0
+* `distparam`: Gamma in the paper; higher values allow longer commutes
+"""
 @with_kw mutable struct MasterOptions
     nlegs::Int                  = 1
     nfreqs::Int                 = 1
@@ -6,11 +20,27 @@
     costwts::Vector{Float64}    = [1.0]
     constrainedg::Bool          = false
     ninitial::Int               = 0   
-    angleparam::Float64         = -1.0 # deprecated by default
+    angleparam::Float64         = -1.0 # unused by default
     distparam::Float64          = 1.5
     modeltype::Symbol           = :lp
 end
 
+"""
+MasterProblem
+
+* `np`: a TransitNetwork object that contains the network information
+* `linelist`: a list of lines to choose to operate
+* `commutelines`: has length `options.nlegs`.
+                  The first entry maps a commute (u, v) to the lines that contain both stops
+                  The second entry is unused.
+* `costs`: the cost for each line
+* `model`: a JuMP model
+* `budget`: the budget for the budget constraint, which is fixed by `NDM.optimize()`
+* `x`: x[l, f] indicates whether a line l is operated at frequency level f
+* `θ`: θ[u, v] indicates the fraction of commuters for commute (u, v) can be serviced
+* `solver`: GurobiSolver by default
+* `options`: struct containing options for the optimization
+"""
 mutable struct MasterProblem
     # Network information
     np::TransitNetwork
@@ -25,31 +55,14 @@ mutable struct MasterProblem
     θ::JuMP.JuMPArray
     solver
 
+    # Parameters
     options::MasterOptions
 end
 
 """
-Returns a MasterProblem object.
-
-Contains information on both the transit network and the optimization model.
-
-### Keyword Arguments
-* `gridtype`: `:latlong` or `:euclidean`.
-* `linelist`: A vector of the lines (assumed to be unique) in the transit
-    network. Each line is a vector of ints corresponding to the stations on it.
-* `nlegs`: The maximum number of lines being used for any given commute. So if
-    `nlegs=2`, then only a single transfer is allowed.
-* `angleparam`: -1 to 1. Lower values for sharper-angled transfers.
-* `distparam`: >= 1.0.  Higher values allow longer commutes.
-* `solver`: The solver being used to solve the problem.
-* `modeltype`: `ip` or `lp`, to determine whether the relaxation is used.
-
-### Quick Example
-```
-np = load("data/processed/networks/9b-transitnetwork.jld2", "keynetwork")
-rmp = NetworkDesignModels.MasterProblem(np, nlegs = 1)
-NetworkDesignModels.optimize(rmp, 5.0) # solves the problem with a budget of 5
-```
+Returns a MasterProblem object for the given TransitNetwork, initialized on `linelist`
+with default parameters in `options`.
+To start with an empty set of lines, use linelist = Vector{Vector{Int}}()
 """
 function MasterProblem(
         np::TransitNetwork;
@@ -75,7 +88,7 @@ function MasterProblem(
     )
 end
 
-"build base master problem model"
+"Builds base master problem model"
 function mastermodel(
         np::TransitNetwork,
         linelist::Vector{Vector{Int}},
@@ -216,12 +229,9 @@ end
 """
 Returns a vector (with length `nlegs<=2`) of Dict{Tuple{Int,Int},Vector}, where
 
-    commutelines[i][u,v] is a vector of the i lines that connect u to v.
+    commutelines[1][u,v] is a vector of the i lines that connect u to v, and
+    commutelines[2][u,v] is empty (unused code)
 
-In practice, we don't support i > 2, so 
-
-    commutelines[1][u,v] is a Vector{Int}, and
-    commutelines[2][u,v] is a Vector{Tuple{Int,Int}}.
 """
 function allcommutelines(
         np::TransitNetwork,
@@ -234,9 +244,6 @@ function allcommutelines(
     # 1. Initialize each (u,v) entry as an empty vector.
     for u=1:np.nstations, v=setdiff(1:np.nstations, u)
         commutelines[1][u,v] = Int[]
-        #=if nlegs == 2
-            commutelines[2][u,v] = Tuple{Int,Int}[]
-        end=#
     end
     # 2. Populate the (u,v) entries in commutelines.
     # 
@@ -267,28 +274,7 @@ function addline!(
     for u in line, v in line
         u != v && push!(commutelines[1][u,v], l1)
     end
-    # Two-leg commutes
-    #=if length(commutelines) == 2
-        for l2 in 1:length(oldlines)
-            line2 = oldlines[l2]
-            xfrstns = intersect(line, line2)
-            length(xfrstns) == 0 && continue
-            # u --line-> (w in xfrstns)
-            #            (w in xfrstns) --line2-> v
-            for u in setdiff(line, xfrstns), v in setdiff(line2, xfrstns)
-                for w in xfrstns
-                    if validtransfer(np, u, v, w, angleparam, distparam, gridtype)
-                        pair = (min(l1, l2), max(l1, l2))
-                        haskey(commutelines[2], (u, v)) &&
-                            push!(commutelines[2][u,v], pair)
-                        haskey(commutelines[2], (v, u)) &&
-                            push!(commutelines[2][v,u], pair)
-                        break
-                    end
-                end
-            end
-        end
-    end=#
+    # Two-leg commutes are now handed directly in the master problem, so no need to update.
     # We update oldlines at the end to avoid conflicts with the earlier updates.
     push!(oldlines, line)
 end

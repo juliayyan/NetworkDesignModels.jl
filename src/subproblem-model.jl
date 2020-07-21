@@ -86,11 +86,6 @@ end
 Adds transferring variables and constraints to subproblem model `sp`.
 
 Use basemodel(...) for constructing a subproblem model.
-
-### Args
-* `srv[u,v]` corresponds to `g[1][u,v]` (`g[u,v]` in the direct-route model).
-* `ingraph` is a vector where `ingraph[u]` corresponds to a JuMP expression for
-    `sum(f[u,v] for u in In(v))`.
 """
 function transfermodel(
         rmp::MasterProblem,
@@ -117,32 +112,6 @@ function transfermodel(
     (srv2a, srv2b)
 end
 
-
-#=
-"""
-Returns a vector of dictionaries `coeffs` for the subproblem objective function.
-
-It is defined such that `coeffs[i][u,v]` corresponds to the objective
-coefficient for variable `srv2[u,v,i]` ("g[i+1][u,v]" in the writeup).
-"""
-function spcoeffs(
-        rmp::MasterProblem,
-        sp::SubProblem
-    )
-    if sp.xfrstops_uw == nothing || sp.xfrstops_wv == nothing 
-            error("Can't create coefficients for the direct-route model.")
-    end
-    coeffs = [Dict{Tuple{Int,Int},Float64}() for i in 1:4]
-    for u in 1:rmp.np.nstations, v in nonzerodests(rmp.np,u)
-        coeffs[1][u,v] = min(1.0, length(sp.xfrstops_wv[u,v][1])) # active
-        coeffs[2][u,v] = min(1.0, length(sp.xfrstops_uw[u,v][1])) # active
-        coeffs[3][u,v] = min(0.5, length(sp.xfrstops_wv[u,v][2])) # inactive
-        coeffs[4][u,v] = min(0.5, length(sp.xfrstops_uw[u,v][2])) # inactive
-    end
-    
-    coeffs
-end=#
-
 """
 Uses dual values `p` and `q` to generate a profitable line.
 
@@ -150,8 +119,11 @@ This function helps solve the subproblem many times just changing the objective
 without rebuilding the model.
 
 ### Keyword Arguments
-* `coeffs`: a tuple (coeffs_uw, coeffs_wv) for the p variables.
+* `sp`: the SubProblem instance
+* `rmp`: the MasterProblem from which we get the duals
+* `f`: which frequency level to optimize for
 * `trackingstatuses`: for tracking information through solver callbacks.
+* `trackingtimegrid`: how often to save tracking data in seconds
 
 ### Returns
 A `path::Vector{Int}` of the stations along the profitable line.
@@ -163,6 +135,7 @@ function generatecolumn(
         trackingstatuses::Vector{Symbol} = Symbol[],
         trackingtimegrid::Int = 5
     )
+    # set objective of subproblem based on dual values
     freqwt = rmp.options.freqwts[f]
     xfrwt = rmp.options.xfrwts[f]
     costwt = rmp.options.costwts[f]
@@ -204,6 +177,7 @@ function generatecolumn(
         )
     end
 
+    # track solve information
     t0 = time()
     for tracking in trackingstatuses
         if tracking == :Intermediate
@@ -230,9 +204,11 @@ function generatecolumn(
         end
     end
 
+    # solve
     JuMP.solve(sp.model)
     sp.auxinfo[:endtime] = time() - t0
 
+    # save data
     if JuMP.getobjectivevalue(sp.model) > 0
         path = getpath(sp) 
         if ((length(path) > 0) &&
@@ -253,7 +229,7 @@ It starts with edge-restricted networks and iteratively builds up
 relevant sections of the network.
 
 ### Keyword Arguments
-* `coeffs`: A tuple (coeffs_uw, coeffs_wv) for the p variables.
+* `rmp`: the MasterProblem to generate a column for.  Builds subproblems internally
 * `directions`: A vector of directions z to run the subproblem with
     preprocessed edge set E(z, delta).
 * `nlegs`: The (maximum) number of legs of each commute.
@@ -352,6 +328,7 @@ function generatecolumn(
     path, auxinfo 
 end
 
+"Warm starts a SubProblem with a given path"
 function warmstart(sp::SubProblem, path::Vector{Int})
     JuMP.setvalue(sp.src[path[1]]  , 1)
     JuMP.setvalue(sp.snk[path[end]], 1)
@@ -360,6 +337,10 @@ function warmstart(sp::SubProblem, path::Vector{Int})
     end
 end
 
+"""
+Warm starts a SubProblem with a proposed path from which we can construct a partial solution
+Necessary in case the proposed path is not actually feasible for the SubProblem
+"""
 function trywarmstart(sp::SubProblem, trypath::Vector{Int})
     warmstarts = Vector{Vector{Int}}()
     curpath = Vector{Int}()

@@ -1,3 +1,7 @@
+"""
+Calculates traveltimes for commutes on the line and generates cuts if any commutes
+have travel times that are too long.
+"""
 function addlazytraveltimes(
     cb,
     np::TransitNetwork,
